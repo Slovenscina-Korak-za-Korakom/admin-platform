@@ -57,7 +57,7 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const student = event?.studentInfo;
 
-  const isRegularsSession = event?.sessionType === "regulars";
+  const isRegularsSession = event?.sessionType === "regular";
   const isFutureSession = event ? new Date(event.startTime) > new Date() : false;
 
   if (!event) {
@@ -212,7 +212,7 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
             {/* Action Buttons */}
             <div className="p-6">
               <div className="flex gap-3">
-                {isRegularsSession && isFutureSession && event.invitationId ? (
+                {isRegularsSession && isFutureSession ? (
                   <>
                     <Button
                       variant="outline"
