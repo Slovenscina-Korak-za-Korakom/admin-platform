@@ -3,7 +3,6 @@ import {
   IconDashboard,
   IconLanguage,
   IconSettings,
-  IconUsers,
   IconVideo,
   IconClock,
 } from "@tabler/icons-react";
@@ -39,11 +38,6 @@ export const SIDEBAR_DATA = {
       title: "Course Management",
       url: "/course-management",
       icon: IconVideo,
-    },
-    {
-      title: "Team",
-      url: "/team",
-      icon: IconUsers,
     },
   ],
   navSecondary: [

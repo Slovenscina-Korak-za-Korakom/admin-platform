@@ -1,13 +1,8 @@
-import {getAllTutorHoursByType, isAdmin} from "@/actions/admin-actions";
-import {TutorHoursOverview} from "@/app/(protected)/team/_components/tutor-hours-overview";
-import {notFound} from "next/navigation";
+import {getAllTutorHoursByType} from "@/actions/admin-actions";
+import {TutorHoursOverview} from "@/app/(protected)/dashboard/_components/tutor-hours-overview";
 
-export default async function TeamPage() {
-  const isUserAdmin = await isAdmin();
+export const AdminDashboard = async () => {
 
-  if (!isUserAdmin) {
-    throw notFound();
-  }
   const result = await getAllTutorHoursByType();
 
   if (result.status !== 200) {
@@ -42,4 +37,4 @@ export default async function TeamPage() {
       <TutorHoursOverview data={result.data}/>
     </div>
   );
-}
+};
