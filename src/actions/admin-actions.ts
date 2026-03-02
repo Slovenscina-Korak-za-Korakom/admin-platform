@@ -2,18 +2,22 @@
 
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
-import {tutorsTable, timeblocksTable} from "@/db/schema";
-import {sql, asc, eq, and, lt} from "drizzle-orm";
+import {timeblocksTable, tutorsTable} from "@/db/schema";
+import {and, asc, eq, lt, sql} from "drizzle-orm";
+
+interface SessionInfo {
+  sessionType: string;
+  totalMinutes: number;
+  sessionCount: number;
+}
 
 export interface TutorHoursByType {
   tutorId: number;
   tutorName: string;
   tutorEmail: string;
   tutorColor: string;
-  sessionType: string;
-  totalHours: number;
-  totalMinutes: number;
-  sessionCount: number;
+  tutorLevel: string;
+  sessions: SessionInfo[];
 }
 
 export const isAdmin = async () => {
@@ -96,6 +100,7 @@ export const getAllTutorHoursByType = async () => {
         tutorName: tutorsTable.name,
         tutorEmail: tutorsTable.email,
         tutorColor: tutorsTable.color,
+        tutorLevel: tutorsTable.level,
         sessionType: timeblocksTable.sessionType,
         totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
         sessionCount: sql<number>`COUNT(*)::int`,
@@ -117,17 +122,28 @@ export const getAllTutorHoursByType = async () => {
       )
       .orderBy(asc(tutorsTable.name), asc(timeblocksTable.sessionType));
 
+
     // Transform the data to include total hours
-    const data: TutorHoursByType[] = results.map((row) => ({
-      tutorId: row.tutorId,
-      tutorName: row.tutorName,
-      tutorEmail: row.tutorEmail,
-      tutorColor: row.tutorColor,
-      sessionType: row.sessionType,
-      totalHours: Number((row.totalMinutes / 60).toFixed(2)),
-      totalMinutes: row.totalMinutes,
-      sessionCount: row.sessionCount,
-    }));
+    const tutorMap = new Map<number, TutorHoursByType>();
+    for (const row of results) {
+      if (!tutorMap.has(row.tutorId)) {
+        tutorMap.set(row.tutorId, {
+            tutorId: row.tutorId,
+            tutorName: row.tutorName,
+            tutorEmail: row.tutorEmail,
+            tutorColor: row.tutorColor,
+            tutorLevel: row.tutorLevel,
+          sessions: [],
+        });
+      }
+      tutorMap.get(row.tutorId)!.sessions.push({
+        sessionType: row.sessionType,
+        totalMinutes: row.totalMinutes,
+        sessionCount: row.sessionCount,
+      });
+
+    }
+    const data = Array.from(tutorMap.values());
 
     return {message: "Success", status: 200, data};
   } catch (error) {
