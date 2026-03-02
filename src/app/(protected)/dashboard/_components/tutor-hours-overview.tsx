@@ -3,11 +3,62 @@
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
-import {TutorHoursByType} from "@/actions/admin-actions";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {RegularSession, TutorHoursByType} from "@/actions/admin-actions";
+import {HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
 import {IconChartBar, IconClock, IconUser, IconUsersGroup} from "@tabler/icons-react";
 import {useMemo} from "react";
+import {useRouter} from "next/navigation";
 
-export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
+const FILTER_OPTIONS: { value: HoursFilter; label: string }[] = [
+  {value: "all", label: "All time"},
+  {value: "7d", label: "Last 7 days"},
+  {value: "14d", label: "Last 14 days"},
+  {value: "30d", label: "Last 30 days"},
+  {value: "90d", label: "Last 90 days"},
+  {value: "this_month", label: "This month"},
+  {value: "last_month", label: "Last month"},
+];
+
+
+function countWeekdayOccurrences(dayOfWeek: number, from: Date, to: Date): number {
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+
+  const daysUntilFirst = (dayOfWeek - start.getDay() + 7) % 7;
+  const firstOccurrence = new Date(start);
+  firstOccurrence.setDate(firstOccurrence.getDate() + daysUntilFirst);
+
+  if (firstOccurrence >= end) return 0;
+
+  return Math.floor((end.getTime() - firstOccurrence.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
+export function TutorHoursOverview({data, regularData, activeFilter}: {
+  data: TutorHoursByType[];
+  regularData: RegularSession[];
+  activeFilter: HoursFilter;
+}) {
+  const router = useRouter();
+
+  const regularStats = useMemo(() => {
+    const now = new Date();
+    const result = new Map<number, { sessions: number; minutes: number }>();
+
+    regularData.forEach((session) => {
+      const count = countWeekdayOccurrences(session.dayOfWeek, session.updatedAt, now);
+      if (!result.has(session.tutorId)) {
+        result.set(session.tutorId, {sessions: 0, minutes: 0});
+      }
+      const stats = result.get(session.tutorId)!;
+      stats.sessions += count;
+      stats.minutes += count * session.duration;
+    });
+
+    return result;
+  }, [regularData]);
 
   const totalStats = useMemo(() => {
     let minutes = 0;
@@ -18,10 +69,14 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
         sessions += session.sessionCount;
       });
     });
+    regularStats.forEach((t:{minutes: number, sessions: number}) => {
+      minutes += t.minutes;
+      sessions += t.sessions
+    })
     return {minutes, sessions};
-  }, [data]);
+  }, [data, regularStats]);
 
-  if (data.length === 0) {
+  if (data.length === 0 && regularData.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
@@ -32,8 +87,28 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
     );
   }
 
+  function handleFilterChange(value: string) {
+    const params = new URLSearchParams();
+    if (value !== "all") params.set("filter", value);
+    router.push(`?${params.toString()}`);
+  }
+
   return (
     <div className="space-y-6">
+
+      {/* Filter */}
+      <div className="flex justify-end">
+        <Select value={activeFilter} onValueChange={handleFilterChange}>
+          <SelectTrigger className="w-44">
+            <SelectValue/>
+          </SelectTrigger>
+          <SelectContent>
+            {FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -46,7 +121,7 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-sky-700 dark:text-sky-300">{data.length}</div>
+            <div className="text-2xl font-bold text-sky-700 dark:text-sky-300">{Math.max(data.length, regularStats.size)}</div>
             <p className="text-xs text-sky-600/75 dark:text-sky-400/75 mt-1">Active team members</p>
           </CardContent>
         </Card>
@@ -104,9 +179,10 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
 
       {/* Tutor Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {data.map((tutor) => {
-          const totalMinutes = tutor.sessions.reduce((sum, s) => sum + s.totalMinutes, 0);
-          const totalSessions = tutor.sessions.reduce((sum, s) => sum + s.sessionCount, 0);
+        {data.map((tutor) => { // FIX: show tutor information even if there is no individual or group sessions (only regulars)
+          const tutorRegular = regularStats.get(tutor.tutorId);
+          const totalMinutes = tutor.sessions.reduce((sum, s) => sum + s.totalMinutes, 0) + (tutorRegular?.minutes ?? 0);
+          const totalSessions = tutor.sessions.reduce((sum, s) => sum + s.sessionCount, 0) + (tutorRegular?.sessions ?? 0);
 
           return (
             <Dialog key={tutor.tutorId}>
@@ -116,7 +192,7 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
                   style={{borderLeftColor: tutor.tutorColor}}
                 >
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">{tutor.tutorName}</CardTitle>
+                    <CardTitle className="text-lg capitalize">{tutor.tutorName}</CardTitle>
                     <p className="text-sm text-muted-foreground">{tutor.tutorEmail}</p>
                   </CardHeader>
                   <CardContent>
@@ -189,6 +265,25 @@ export function TutorHoursOverview({data}: { data: TutorHoursByType[] }) {
                           </div>
                         </div>
                       ))}
+                      {regularStats.has(tutor.tutorId) && (
+                        <div
+                          key={tutor.tutorId}
+                          className="flex items-center justify-between rounded-lg border px-3 py-2.5"
+                        >
+                          <Badge variant="outline" className="capitalize font-medium">
+                            Regular
+                          </Badge>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-muted-foreground">
+                              {(regularStats.get(tutor.tutorId))?.sessions ?? "Error"} <span className="text-xs">sessions</span>
+                            </span>
+                            <span className="font-semibold tabular-nums">
+                              {(regularStats.get(tutor.tutorId))?.minutes ?? "Error"} <span
+                              className="text-xs font-normal text-muted-foreground">min</span>
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

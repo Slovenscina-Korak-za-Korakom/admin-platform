@@ -2,8 +2,19 @@
 
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
-import {timeblocksTable, tutorsTable} from "@/db/schema";
-import {and, asc, eq, lt, sql} from "drizzle-orm";
+import {regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
+import {and, asc, eq, lt, gt, sql} from "drizzle-orm";
+
+export interface RegularSession {
+  tutorId: number;
+  tutorName: string;
+  tutorColor: string;
+  dayOfWeek: number;
+  startTime: string;
+  duration: number;
+  color: string | null;
+  updatedAt: Date;
+}
 
 interface SessionInfo {
   sessionType: string;
@@ -85,8 +96,9 @@ export const activateTutorAccount = async (formData: FormData) => {
   }
 };
 
+
 // @formatter:off
-export const getAllTutorHoursByType = async () => {
+export const getTutorHoursByDate = async (date: Date | undefined) => {
   const {userId} = await auth();
   if (!userId) {
     return {message: "Unauthorized", status: 401, data: []};
@@ -94,33 +106,34 @@ export const getAllTutorHoursByType = async () => {
 
   try {
     // Group timeblocks by tutor and sessionType, calculate total hours
-    const results = await db
-      .select({
-        tutorId: tutorsTable.id,
-        tutorName: tutorsTable.name,
-        tutorEmail: tutorsTable.email,
-        tutorColor: tutorsTable.color,
-        tutorLevel: tutorsTable.level,
-        sessionType: timeblocksTable.sessionType,
-        totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
-        sessionCount: sql<number>`COUNT(*)::int`,
-      })
-      .from(timeblocksTable)
-      .where(
-        and(
-          eq(timeblocksTable.status, "booked"),
-          lt(timeblocksTable.startTime, new Date())
+    const  results = await db
+        .select({
+          tutorId: tutorsTable.id,
+          tutorName: tutorsTable.name,
+          tutorEmail: tutorsTable.email,
+          tutorColor: tutorsTable.color,
+          tutorLevel: tutorsTable.level,
+          sessionType: timeblocksTable.sessionType,
+          totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
+          sessionCount: sql<number>`COUNT(*)::int`,
+        })
+        .from(timeblocksTable)
+        .where(
+          and(
+            eq(timeblocksTable.status, "booked"),
+            lt(timeblocksTable.startTime, new Date()),
+            date ? gt(timeblocksTable.startTime, date) : undefined,
+          )
         )
-      )
-      .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
-      .groupBy(
-        tutorsTable.id,
-        tutorsTable.name,
-        tutorsTable.email,
-        tutorsTable.color,
-        timeblocksTable.sessionType
-      )
-      .orderBy(asc(tutorsTable.name), asc(timeblocksTable.sessionType));
+        .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
+        .groupBy(
+          tutorsTable.id,
+          tutorsTable.name,
+          tutorsTable.email,
+          tutorsTable.color,
+          timeblocksTable.sessionType
+        )
+        .orderBy(asc(tutorsTable.name), asc(timeblocksTable.sessionType));
 
 
     // Transform the data to include total hours
@@ -128,11 +141,11 @@ export const getAllTutorHoursByType = async () => {
     for (const row of results) {
       if (!tutorMap.has(row.tutorId)) {
         tutorMap.set(row.tutorId, {
-            tutorId: row.tutorId,
-            tutorName: row.tutorName,
-            tutorEmail: row.tutorEmail,
-            tutorColor: row.tutorColor,
-            tutorLevel: row.tutorLevel,
+          tutorId: row.tutorId,
+          tutorName: row.tutorName,
+          tutorEmail: row.tutorEmail,
+          tutorColor: row.tutorColor,
+          tutorLevel: row.tutorLevel,
           sessions: [],
         });
       }
@@ -152,3 +165,77 @@ export const getAllTutorHoursByType = async () => {
   }
 };
 // @formatter:on
+
+export interface DailySessionStat {
+  date: string;
+  tutorId: number;
+  tutorName: string;
+  tutorColor: string;
+  sessionCount: number;
+  totalMinutes: number;
+}
+
+// @formatter:off
+export const getDailySessionStats = async () => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: [] as DailySessionStat[]};
+  }
+
+  try {
+    const results = await db
+      .select({
+        date: sql<string>`TO_CHAR(${timeblocksTable.startTime} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
+        tutorId: tutorsTable.id,
+        tutorName: tutorsTable.name,
+        tutorColor: tutorsTable.color,
+        sessionCount: sql<number>`COUNT(*)::int`,
+        totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
+      })
+      .from(timeblocksTable)
+      .where(eq(timeblocksTable.status, "booked"))
+      .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
+      .groupBy(
+        sql`TO_CHAR(${timeblocksTable.startTime} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
+        tutorsTable.id,
+        tutorsTable.name,
+        tutorsTable.color,
+      )
+      .orderBy(asc(sql`TO_CHAR(${timeblocksTable.startTime} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`));
+
+    return {message: "Success", status: 200, data: results as DailySessionStat[]};
+  } catch (error) {
+    console.error(error);
+    return {message: "Error fetching daily session stats", status: 500, data: [] as DailySessionStat[]};
+  }
+};
+// @formatter:on
+
+export const getRegularSessions = async () => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: [] as RegularSession[]};
+  }
+
+  try {
+    const results = await db.select({
+      tutorId: regularInvitationsTable.tutorId,
+      tutorName: tutorsTable.name,
+      tutorColor: tutorsTable.color,
+      dayOfWeek: regularInvitationsTable.dayOfWeek,
+      startTime: regularInvitationsTable.startTime,
+      duration: regularInvitationsTable.duration,
+      color: regularInvitationsTable.color,
+      updatedAt: regularInvitationsTable.updatedAt,
+    })
+      .from(regularInvitationsTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
+      .where(eq(regularInvitationsTable.status, "accepted"));
+
+    return {message: "Success", status: 200, data: results as RegularSession[]};
+
+  } catch (error) {
+    console.error(error);
+    return {message: "Error fetching regular sessions", status: 500, data: [] as RegularSession[]};
+  }
+}
