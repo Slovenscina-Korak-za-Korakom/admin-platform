@@ -176,7 +176,7 @@ export interface DailySessionStat {
 }
 
 // @formatter:off
-export const getDailySessionStats = async () => {
+export const getDailySessionStats = async (date: Date | undefined) => {
   const {userId} = await auth();
   if (!userId) {
     return {message: "Unauthorized", status: 401, data: [] as DailySessionStat[]};
@@ -193,7 +193,11 @@ export const getDailySessionStats = async () => {
         totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
       })
       .from(timeblocksTable)
-      .where(eq(timeblocksTable.status, "booked"))
+      .where(and(
+        eq(timeblocksTable.status, "booked"),
+        lt(timeblocksTable.startTime, new Date()),
+        date ? gt(timeblocksTable.startTime, date) : undefined,
+      ))
       .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
       .groupBy(
         sql`TO_CHAR(${timeblocksTable.startTime} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,

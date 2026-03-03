@@ -3,12 +3,14 @@
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {RegularSession, TutorHoursByType} from "@/actions/admin-actions";
-import {HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
+import {DailySessionStat, RegularSession, TutorHoursByType} from "@/actions/admin-actions";
+import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
 import {IconChartBar, IconClock, IconUser, IconUsersGroup} from "@tabler/icons-react";
 import {useMemo} from "react";
+import {SessionsChart} from "@/app/(protected)/dashboard/_components/sessions-chart";
+import {cn} from "@/lib/utils";
 import {useRouter} from "next/navigation";
+
 
 const FILTER_OPTIONS: { value: HoursFilter; label: string }[] = [
   {value: "all", label: "All time"},
@@ -20,27 +22,13 @@ const FILTER_OPTIONS: { value: HoursFilter; label: string }[] = [
   {value: "last_month", label: "Last month"},
 ];
 
-
-function countWeekdayOccurrences(dayOfWeek: number, from: Date, to: Date): number {
-  const start = new Date(from);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(to);
-  end.setHours(0, 0, 0, 0);
-
-  const daysUntilFirst = (dayOfWeek - start.getDay() + 7) % 7;
-  const firstOccurrence = new Date(start);
-  firstOccurrence.setDate(firstOccurrence.getDate() + daysUntilFirst);
-
-  if (firstOccurrence >= end) return 0;
-
-  return Math.floor((end.getTime() - firstOccurrence.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-}
-
-export function TutorHoursOverview({data, regularData, activeFilter}: {
+export function TutorHoursOverview({data, regularData, dailyData, activeFilter}: {
   data: TutorHoursByType[];
+  dailyData: {status: number, data: DailySessionStat[]};
   regularData: RegularSession[];
   activeFilter: HoursFilter;
 }) {
+
   const router = useRouter();
 
   const regularStats = useMemo(() => {
@@ -48,7 +36,12 @@ export function TutorHoursOverview({data, regularData, activeFilter}: {
     const result = new Map<number, { sessions: number; minutes: number }>();
 
     regularData.forEach((session) => {
-      const count = countWeekdayOccurrences(session.dayOfWeek, session.updatedAt, now);
+      const filterDate = getDateFromFilter(activeFilter);
+      const updatedAt = new Date(session.updatedAt);
+      const from = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
+
+      const count = countWeekdayOccurrences(session.dayOfWeek, from, now);
+
       if (!result.has(session.tutorId)) {
         result.set(session.tutorId, {sessions: 0, minutes: 0});
       }
@@ -58,7 +51,7 @@ export function TutorHoursOverview({data, regularData, activeFilter}: {
     });
 
     return result;
-  }, [regularData]);
+  }, [regularData, activeFilter]);
 
   const totalStats = useMemo(() => {
     let minutes = 0;
@@ -87,28 +80,16 @@ export function TutorHoursOverview({data, regularData, activeFilter}: {
     );
   }
 
+
   function handleFilterChange(value: string) {
     const params = new URLSearchParams();
     if (value !== "all") params.set("filter", value);
     router.push(`?${params.toString()}`);
   }
 
+
   return (
     <div className="space-y-6">
-
-      {/* Filter */}
-      <div className="flex justify-end">
-        <Select value={activeFilter} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-44">
-            <SelectValue/>
-          </SelectTrigger>
-          <SelectContent>
-            {FILTER_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -176,6 +157,31 @@ export function TutorHoursOverview({data, regularData, activeFilter}: {
           </CardContent>
         </Card>
       </div>
+
+      {/* Time range filter */}
+      <div className="inline-flex rounded-lg border border-border text-xs font-medium overflow-hidden mt-8">
+        {FILTER_OPTIONS.map((r, i) => (
+          <button
+            key={r.value}
+            onClick={() => handleFilterChange(r.value)}
+            className={cn(
+              "px-3 py-1.5 transition-colors",
+              i > 0 && "border-l border-border",
+              activeFilter === r.value
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                : "bg-background text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {dailyData.status === 200 && (
+        <div className="mb-10">
+        <SessionsChart data={dailyData.data} regularData={regularData} activeFilter={activeFilter}/>
+        </div>
+      )}
 
       {/* Tutor Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -295,3 +301,19 @@ export function TutorHoursOverview({data, regularData, activeFilter}: {
     </div>
   );
 }
+
+function countWeekdayOccurrences(dayOfWeek: number, from: Date, to: Date): number {
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+
+  const daysUntilFirst = (dayOfWeek - start.getDay() + 7) % 7;
+  const firstOccurrence = new Date(start);
+  firstOccurrence.setDate(firstOccurrence.getDate() + daysUntilFirst);
+
+  if (firstOccurrence >= end) return 0;
+
+  return Math.floor((end.getTime() - firstOccurrence.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
