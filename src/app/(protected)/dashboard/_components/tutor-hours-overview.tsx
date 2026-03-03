@@ -47,7 +47,7 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
 
   const regularStats = useMemo(() => {
     const now = new Date();
-    const result = new Map<number, { sessions: number; minutes: number }>();
+    const result = new Map<number, { sessions: number; minutes: number; revenue: number }>();
 
     regularData.data.forEach((session) => {
       const filterDate = getDateFromFilter(activeFilter);
@@ -64,31 +64,36 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
       const effectiveCount = Math.max(0, count - cancelledCount);
 
       if (!result.has(session.tutorId)) {
-        result.set(session.tutorId, {sessions: 0, minutes: 0});
+        result.set(session.tutorId, {sessions: 0, minutes: 0, revenue: 0});
       }
       const stats = result.get(session.tutorId)!;
       stats.sessions += effectiveCount;
       stats.minutes += effectiveCount * session.duration;
+      const tutor = tutors.find((t) => t.id === session.tutorId)
+      stats.revenue += tutor?.level === "junior" ? effectiveCount * session.duration * 0.333 : effectiveCount * session.duration * 0.367;
     });
 
     return result;
-  }, [regularData, activeFilter]);
+  }, [regularData.data, regularData.cancelData, activeFilter, tutors]);
 
 
   const totalStats = useMemo(() => {
     let minutes = 0;
     let sessions = 0;
+    let revenue = 0;
     data.forEach((tutor) => {
       tutor.sessions.forEach(session => {
         minutes += session.totalMinutes;
         sessions += session.sessionCount;
+        revenue += tutor.tutorLevel === "junior" ? session.totalMinutes * 0.333 : session.totalMinutes * 0.367;
       });
     });
-    regularStats.forEach((t: { minutes: number, sessions: number }) => {
+    regularStats.forEach((t: { minutes: number, sessions: number, revenue: number }) => {
       minutes += t.minutes;
       sessions += t.sessions
+      revenue += t.revenue
     })
-    return {minutes, sessions};
+    return {minutes, sessions, revenue};
   }, [data, regularStats]);
 
   if (data.length === 0 && regularData.data.length === 0) {
@@ -172,7 +177,7 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-rose-700 dark:text-rose-300">
-              € - coming soon
+              € {totalStats.revenue.toFixed(2)}
             </div>
             <p className="text-xs text-rose-600/75 dark:text-rose-400/75 mt-1">
               Based on session rates
