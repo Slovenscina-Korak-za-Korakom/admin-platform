@@ -1,4 +1,4 @@
-import {getDailySessionStats, getRegularSessions, getTutorHoursByDate} from "@/actions/admin-actions";
+import {getDailySessionStats, getRegularSessions, getTutorHoursByDate, getTutors} from "@/actions/admin-actions";
 import {TutorHoursOverview} from "@/app/(protected)/dashboard/_components/tutor-hours-overview";
 
 export type HoursFilter = "all" | "7d" | "14d" | "30d" | "90d" | "this_month" | "last_month";
@@ -19,10 +19,11 @@ export function getDateFromFilter(filter: string | undefined): Date | undefined 
 export const AdminDashboard = async ({filter}: { filter?: string }) => {
   const activeFilter: HoursFilter = (filter as HoursFilter) ?? "all";
 
-  const [tutorHours, dailyStats, regularSessions] = await Promise.all([
+  const [tutorHours, dailyStats, regularSessions, tutors] = await Promise.all([
     getTutorHoursByDate(getDateFromFilter(filter)),
     getDailySessionStats(getDateFromFilter(filter)),
-    getRegularSessions()
+    getRegularSessions(),
+    getTutors()
   ]);
 
   if (tutorHours.status !== 200) {
@@ -43,7 +44,7 @@ export const AdminDashboard = async ({filter}: { filter?: string }) => {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <TutorHoursOverview data={tutorHours.data} dailyData={dailyStats} regularData={regularSessions.data} activeFilter={activeFilter}/>
+      <TutorHoursOverview tutors={tutors.data ?? []} data={tutorHours.data} dailyData={dailyStats} regularData={regularSessions.data} activeFilter={activeFilter}/>
     </div>
   );
 };

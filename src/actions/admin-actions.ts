@@ -31,6 +31,31 @@ export interface TutorHoursByType {
   sessions: SessionInfo[];
 }
 
+export const getTutors = async () => {
+  const {userId} = await auth();
+
+   if (!userId) {
+    return {message: "Unauthorized", status: 401};
+  }
+
+  try {
+     const data = await db.select({
+       id: tutorsTable.id,
+       name: tutorsTable.name,
+       email: tutorsTable.email,
+       avatar: tutorsTable.avatar,
+       level: tutorsTable.level,
+       color: tutorsTable.color,
+     }).from(tutorsTable);
+
+     return {message: "Success", data, status: 200};
+
+  } catch (error) {
+    console.error(error);
+    return { message: "Error getting tutor avatar", status: 500}
+  }
+}
+
 export const isAdmin = async () => {
   const {userId} = await auth();
   if (!userId) {
