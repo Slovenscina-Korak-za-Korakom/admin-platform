@@ -3,7 +3,7 @@
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {CancelData, DailySessionStat, RegularSession, TutorHoursByType} from "@/actions/admin-actions";
 import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
-import {IconChartBar, IconClock, IconUser, IconUsersGroup} from "@tabler/icons-react";
+import {IconChartBar, IconClock, IconMoneybag, IconUsersGroup} from "@tabler/icons-react";
 import {useMemo} from "react";
 import {SessionsChart} from "@/app/(protected)/dashboard/_components/sessions-chart";
 import {cn} from "@/lib/utils";
@@ -172,7 +172,7 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
             </CardTitle>
             <div
               className="p-2.5 rounded-lg bg-gradient-to-br from-rose-400/20 to-pink-500/20 border border-rose-400/40 shadow-sm">
-              <IconUser className="h-5 w-5 text-rose-600 dark:text-rose-400"/>
+              <IconMoneybag className="h-5 w-5 text-rose-600 dark:text-rose-400"/>
             </div>
           </CardHeader>
           <CardContent>
