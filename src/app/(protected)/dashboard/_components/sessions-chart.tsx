@@ -11,7 +11,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import {CartesianGrid, Line, LineChart, XAxis, YAxis} from "recharts";
-import type {DailySessionStat, RegularSession} from "@/actions/admin-actions";
+import type {CancelData, DailySessionStat, RegularSession} from "@/actions/admin-actions";
 import {cn} from "@/lib/utils";
 import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
 
@@ -20,7 +20,7 @@ type Metric = "sessions" | "minutes";
 
 export function SessionsChart({data, regularData, activeFilter}: {
   data: DailySessionStat[];
-  regularData: RegularSession[];
+  regularData: {status: number, data: RegularSession[]; cancelData: CancelData[]}
   activeFilter: HoursFilter;
 }) {
   const [metric, setMetric] = useState<Metric>("sessions");
@@ -186,12 +186,12 @@ export function SessionsChart({data, regularData, activeFilter}: {
   );
 }
 
-function expandRegularSessions(regularData: RegularSession[], filter: HoursFilter): DailySessionStat[] {
+function expandRegularSessions(regularData: {data: RegularSession[], cancelData: CancelData[]}, filter: HoursFilter): DailySessionStat[] {
   const now = new Date();
   now.setUTCHours(0, 0, 0, 0);
   const result: DailySessionStat[] = [];
 
-  for (const session of regularData) {
+  for (const session of regularData.data) {
     const filterDate = getDateFromFilter(filter);
     const updatedAt = new Date(session.updatedAt);
     const start = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
@@ -202,14 +202,20 @@ function expandRegularSessions(regularData: RegularSession[], filter: HoursFilte
     current.setDate(current.getDate() + daysUntilFirst);
 
     while (current < now) {
-      result.push({
-        date: current.toISOString().slice(0, 10),
-        tutorId: session.tutorId,
-        tutorName: session.tutorName,
-        tutorColor: session.tutorColor,
-        sessionCount: 1,
-        totalMinutes: session.duration,
-      });
+      const dateStr = current.toISOString().slice(0, 10);
+      const isCancelled = regularData.cancelData.some(
+        c => c.invitationId === session.id && new Date(c.date).toISOString().slice(0, 10) === dateStr
+      );
+      if (!isCancelled) {
+        result.push({
+          date: dateStr,
+          tutorId: session.tutorId,
+          tutorName: session.tutorName,
+          tutorColor: session.tutorColor,
+          sessionCount: 1,
+          totalMinutes: session.duration,
+        });
+      }
       current.setDate(current.getDate() + 7);
     }
   }

@@ -2,10 +2,11 @@
 
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
-import {regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
-import {and, asc, eq, lt, gt, sql} from "drizzle-orm";
+import {cancelledRegularSessionsTable, regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
+import {and, asc, eq, gt, lt, sql} from "drizzle-orm";
 
 export interface RegularSession {
+  id: number;
   tutorId: number;
   tutorName: string;
   tutorColor: string;
@@ -31,28 +32,34 @@ export interface TutorHoursByType {
   sessions: SessionInfo[];
 }
 
+export interface CancelData {
+  id: number;
+  invitationId: number;
+  date: Date;
+}
+
 export const getTutors = async () => {
   const {userId} = await auth();
 
-   if (!userId) {
+  if (!userId) {
     return {message: "Unauthorized", status: 401};
   }
 
   try {
-     const data = await db.select({
-       id: tutorsTable.id,
-       name: tutorsTable.name,
-       email: tutorsTable.email,
-       avatar: tutorsTable.avatar,
-       level: tutorsTable.level,
-       color: tutorsTable.color,
-     }).from(tutorsTable);
+    const data = await db.select({
+      id: tutorsTable.id,
+      name: tutorsTable.name,
+      email: tutorsTable.email,
+      avatar: tutorsTable.avatar,
+      level: tutorsTable.level,
+      color: tutorsTable.color,
+    }).from(tutorsTable);
 
-     return {message: "Success", data, status: 200};
+    return {message: "Success", data, status: 200};
 
   } catch (error) {
     console.error(error);
-    return { message: "Error getting tutor avatar", status: 500}
+    return {message: "Error getting tutor avatar", status: 500}
   }
 }
 
@@ -243,11 +250,12 @@ export const getDailySessionStats = async (date: Date | undefined) => {
 export const getRegularSessions = async () => {
   const {userId} = await auth();
   if (!userId) {
-    return {message: "Unauthorized", status: 401, data: [] as RegularSession[]};
+    return {message: "Unauthorized", status: 401, data: [] as RegularSession[], cancelData: [] as CancelData[]};
   }
 
   try {
-    const results = await db.select({
+    const regularSessions = await db.select({
+      id: regularInvitationsTable.id,
       tutorId: regularInvitationsTable.tutorId,
       tutorName: tutorsTable.name,
       tutorColor: tutorsTable.color,
@@ -261,10 +269,27 @@ export const getRegularSessions = async () => {
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
       .where(eq(regularInvitationsTable.status, "accepted"));
 
-    return {message: "Success", status: 200, data: results as RegularSession[]};
+    const cancelledSessions = await db.select({
+      id: cancelledRegularSessionsTable.id,
+      invitationId: cancelledRegularSessionsTable.invitationId,
+      date: cancelledRegularSessionsTable.cancelledDate
+    }).from(cancelledRegularSessionsTable);
+
+
+    return {
+      message: "Success",
+      status: 200,
+      data: regularSessions as RegularSession[],
+      cancelData: cancelledSessions as CancelData[]
+    };
 
   } catch (error) {
     console.error(error);
-    return {message: "Error fetching regular sessions", status: 500, data: [] as RegularSession[]};
+    return {
+      message: "Error fetching regular sessions",
+      status: 500,
+      data: [] as RegularSession[],
+      cancelData: [] as CancelData[]
+    };
   }
 }

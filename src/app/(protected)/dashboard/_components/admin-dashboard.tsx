@@ -44,7 +44,7 @@ export const AdminDashboard = async ({filter}: { filter?: string }) => {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <TutorHoursOverview tutors={tutors.data ?? []} data={tutorHours.data} dailyData={dailyStats} regularData={regularSessions.data} activeFilter={activeFilter}/>
+      <TutorHoursOverview tutors={tutors.data ?? []} data={tutorHours.data} dailyData={dailyStats} regularData={regularSessions} activeFilter={activeFilter}/>
     </div>
   );
 };

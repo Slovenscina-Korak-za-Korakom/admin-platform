@@ -1,7 +1,7 @@
 "use client";
 
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {DailySessionStat, RegularSession, TutorHoursByType} from "@/actions/admin-actions";
+import {CancelData, DailySessionStat, RegularSession, TutorHoursByType} from "@/actions/admin-actions";
 import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
 import {IconChartBar, IconClock, IconUser, IconUsersGroup} from "@tabler/icons-react";
 import {useMemo} from "react";
@@ -31,7 +31,7 @@ const FILTER_OPTIONS: { value: HoursFilter; label: string }[] = [
 export function TutorHoursOverview({data, regularData, dailyData, activeFilter, tutors}: {
   data: TutorHoursByType[];
   dailyData: { status: number, data: DailySessionStat[] };
-  regularData: RegularSession[];
+  regularData: {status: number, message: string, data: RegularSession[], cancelData: CancelData[]};
   activeFilter: HoursFilter;
   tutors: {
     id: number,
@@ -49,23 +49,31 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
     const now = new Date();
     const result = new Map<number, { sessions: number; minutes: number }>();
 
-    regularData.forEach((session) => {
+    regularData.data.forEach((session) => {
       const filterDate = getDateFromFilter(activeFilter);
       const updatedAt = new Date(session.updatedAt);
       const from = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
 
       const count = countWeekdayOccurrences(session.dayOfWeek, from, now);
 
+      const cancelledCount = regularData.cancelData.filter((c) => {
+        const cancelDate = new Date(c.date);
+        return c.invitationId === session.id && cancelDate >= from && cancelDate < now;
+      }).length;
+
+      const effectiveCount = Math.max(0, count - cancelledCount);
+
       if (!result.has(session.tutorId)) {
         result.set(session.tutorId, {sessions: 0, minutes: 0});
       }
       const stats = result.get(session.tutorId)!;
-      stats.sessions += count;
-      stats.minutes += count * session.duration;
+      stats.sessions += effectiveCount;
+      stats.minutes += effectiveCount * session.duration;
     });
 
     return result;
   }, [regularData, activeFilter]);
+
 
   const totalStats = useMemo(() => {
     let minutes = 0;
@@ -83,7 +91,7 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
     return {minutes, sessions};
   }, [data, regularStats]);
 
-  if (data.length === 0 && regularData.length === 0) {
+  if (data.length === 0 && regularData.data.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
