@@ -205,9 +205,9 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
 
 function countWeekdayOccurrences(dayOfWeek: number, from: Date, to: Date): number {
   const start = new Date(from);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCHours(0, 0, 0, 0);
   const end = new Date(to);
-  end.setHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
 
   const daysUntilFirst = (dayOfWeek - start.getDay() + 7) % 7;
   const firstOccurrence = new Date(start);

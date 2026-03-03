@@ -71,8 +71,9 @@ export function SessionsChart({data, regularData, activeFilter}: {
     }
 
     allData.forEach(d => {
-      dateMap.get(d.date)![d.tutorName] =
-        metric === "sessions" ? d.sessionCount : d.totalMinutes;
+      const entry = dateMap.get(d.date);
+      if (!entry) return;
+      entry[d.tutorName] = metric === "sessions" ? d.sessionCount : d.totalMinutes;
     })
 
     return Array.from(dateMap.entries())
@@ -187,16 +188,16 @@ export function SessionsChart({data, regularData, activeFilter}: {
 
 function expandRegularSessions(regularData: RegularSession[], filter: HoursFilter): DailySessionStat[] {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  now.setUTCHours(0, 0, 0, 0);
   const result: DailySessionStat[] = [];
 
   for (const session of regularData) {
     const filterDate = getDateFromFilter(filter);
     const updatedAt = new Date(session.updatedAt);
     const start = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
-    start.setHours(0, 0, 0, 0);
+    start.setUTCHours(0, 0, 0, 0);
 
-    const daysUntilFirst = (session.dayOfWeek - start.getDay() + 7) % 7;
+    const daysUntilFirst = (session.dayOfWeek - start.getUTCDay() + 7) % 7;
     const current = new Date(start);
     current.setDate(current.getDate() + daysUntilFirst);
 

@@ -30,10 +30,6 @@ export const TutorCard = ({data, regularStats, tutors}: {
       {tutors.map((tutor) => {
         const tutorRegular = regularStats.get(tutor.id);
         const tutorData = data.find((t) => t.tutorId === tutor.id);
-        const totalMinutes =
-          tutorData === undefined ? 0 : tutorData.sessions.reduce((sum, s) => sum + s.totalMinutes, 0) + (tutorRegular?.minutes ?? 0);
-        const totalSessions =
-          tutorData === undefined ? 0 : tutorData?.sessions.reduce((sum, s) => sum + s.sessionCount, 0) + (tutorRegular?.sessions ?? 0);
         const color = tutor.color || "#6366f1";
 
         const allSessions = [
@@ -48,6 +44,9 @@ export const TutorCard = ({data, regularStats, tutors}: {
             minutes: tutorRegular.minutes
           }] : []),
         ];
+
+        const totalMinutes = allSessions.reduce((sum, s) => sum + s.minutes, 0)
+        const totalSessions = allSessions.reduce((sum, s) => sum + s.sessions, 0)
 
         const avatarUrl = avatarMap.get(tutor.email);
 
