@@ -51,6 +51,13 @@ interface CalendarEvent {
   studentClerkId?: string;
 }
 
+// Adjust a "HH:mm" string by a number of hours (positive or negative)
+const adjustTimeHours = (time: string, delta: number): string => {
+  const [h, m] = time.split(":").map(Number);
+  const adjusted = ((h + delta) % 24 + 24) % 24;
+  return `${adjusted.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+};
+
 const getDefaultColorForSessionType = (sessionType: string): string => {
   const defaults: Record<string, string> = {
     individual: "#3b82f6", // Blue for individual
@@ -104,7 +111,7 @@ const ScheduleBuilder = () => {
           calendarEvents.push({
             id: timeSlot.id,
             dayOfWeek: daySchedule.day,
-            startTime: timeSlot.startTime,
+            startTime: adjustTimeHours(timeSlot.startTime, +1), // Stored as UTC, display in local (CET = +1h)
             duration: timeSlot.duration,
             sessionType: timeSlot.sessionType,
             location: timeSlot.location,
@@ -435,7 +442,7 @@ const ScheduleBuilder = () => {
     events.forEach((event) => {
       const timeSlot: TimeSlot = {
         id: event.id,
-        startTime: event.startTime,
+        startTime: adjustTimeHours(event.startTime, -1), // Convert local (CET) → UTC before saving
         duration: event.duration,
         sessionType: event.sessionType as string,
         location: event.location,
