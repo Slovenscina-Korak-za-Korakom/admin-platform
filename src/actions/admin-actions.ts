@@ -3,7 +3,52 @@
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
 import {cancelledRegularSessionsTable, regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
-import {and, asc, eq, gt, lt, sql} from "drizzle-orm";
+import {and, asc, eq, gt, gte, lt, sql} from "drizzle-orm";
+import {addDays, startOfDay} from "date-fns";
+import {fromZonedTime, toZonedTime} from "date-fns-tz";
+
+
+export interface TodaySessions {
+  id: number;
+  tutorId: number;
+  studentId: string;
+  studentName: string;
+  startTime: Date;
+  type: string;
+  duration: number;
+  status: string;
+}
+
+export interface AllCancelledSessions {
+  studentId: string;
+  studentName: string;
+  reason: string;
+  startTime: Date;
+  type: string;
+  cancelledAt: Date;
+}
+
+export interface DailySessionStat {
+  date: string;
+  tutorId: number;
+  tutorName: string;
+  tutorColor: string;
+  sessionCount: number;
+  totalMinutes: number;
+}
+
+export interface RegularSessionsWithName {
+  id: number;
+  tutorId: number;
+  studentId: string;
+  dayOfWeek: number;
+  startTime: string;
+  status: string;
+  duration: number;
+  color: string | null;
+  updatedAt: Date;
+  studentName: string;
+}
 
 export interface RegularSession {
   id: number;
@@ -198,14 +243,6 @@ export const getTutorHoursByDate = async (date: Date | undefined) => {
 };
 // @formatter:on
 
-export interface DailySessionStat {
-  date: string;
-  tutorId: number;
-  tutorName: string;
-  tutorColor: string;
-  sessionCount: number;
-  totalMinutes: number;
-}
 
 // @formatter:off
 export const getDailySessionStats = async (date: Date | undefined) => {
@@ -291,5 +328,158 @@ export const getRegularSessions = async () => {
       data: [] as RegularSession[],
       cancelData: [] as CancelData[]
     };
+  }
+}
+
+
+
+export const getAllRegularSessions = async () => {
+
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: [] as RegularSessionsWithName[]};
+  }
+
+  try {
+    const regularSessions = await db.select({
+      id: regularInvitationsTable.id,
+      tutorId: regularInvitationsTable.tutorId,
+      studentId: tutorsTable.clerkId,
+      dayOfWeek: regularInvitationsTable.dayOfWeek,
+      startTime: regularInvitationsTable.startTime,
+      status: regularInvitationsTable.status,
+      duration: regularInvitationsTable.duration,
+      color: regularInvitationsTable.color,
+      updatedAt: regularInvitationsTable.updatedAt,
+    })
+      .from(regularInvitationsTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
+      .where(eq(tutorsTable.clerkId, userId)).orderBy(regularInvitationsTable.dayOfWeek, regularInvitationsTable.startTime);
+
+
+    const studentIds = [...new Set(regularSessions.map(s => s.studentId))];
+    const userMap = await getUserNames(studentIds);
+    const data = regularSessions.map(s => ({
+      ...s,
+      studentName: userMap.get(s.studentId) ?? "Unknown",
+    }));
+
+    return {
+      message: "Success",
+      status: 200,
+      data: data as RegularSessionsWithName[],
+    };
+
+  } catch (error) {
+    console.error(error);
+    return {
+      message: "Error fetching regular sessions",
+      status: 500,
+      data: [] as RegularSessionsWithName[],
+    };
+  }
+}
+
+
+export const getUserNames = async (studentIds: string[] ): Promise<Map<string, string>> => {
+  const client = await clerkClient();
+  const {data: users} = await client.users.getUserList({userId: studentIds});
+  return new Map(users.map(u => [u.id, u.fullName ?? "Unknown"]));
+}
+
+export const getTodaySessions = async (timezone: string = "UTC") => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: [] as TodaySessions[]};
+  }
+
+  try {
+    const nowInTZ = toZonedTime(new Date(), timezone);
+    const startOfToday = fromZonedTime(startOfDay(nowInTZ), timezone);
+    const startOfTomorrow = fromZonedTime(addDays(startOfDay(nowInTZ), 1), timezone);
+
+    const sessions = await db.select({
+      id: timeblocksTable.id,
+      tutorId: timeblocksTable.tutorId,
+      studentId: timeblocksTable.studentId,
+      startTime: timeblocksTable.startTime,
+      type: timeblocksTable.sessionType,
+      duration: timeblocksTable.duration,
+      status: timeblocksTable.status,
+    }).from(timeblocksTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
+      .where(and(
+        eq(tutorsTable.clerkId, userId),
+        gte(timeblocksTable.startTime, startOfToday),
+        lt(timeblocksTable.startTime, startOfTomorrow),
+      )).orderBy(timeblocksTable.startTime);
+
+    const studentIds = [...new Set(sessions.map(s => s.studentId))];
+    const userMap = await getUserNames(studentIds);
+    const data = sessions.map(s => ({
+      ...s,
+      studentName: userMap.get(s.studentId) ?? "Unknown",
+    }));
+
+    return {message: "Success", status: 200, data: data as TodaySessions[]};
+
+  } catch (error) {
+    console.error(error);
+    return {message: "Error fetching today sessions", status: 500, data: [] as TodaySessions[]};
+  }
+}
+
+
+export const getAllCancelledSessions = async () => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: [] as AllCancelledSessions[]};
+  }
+
+
+  try {
+    const timeblockData = await db.select({
+      studentId: timeblocksTable.studentId,
+      startTime: timeblocksTable.startTime,
+      type: timeblocksTable.sessionType,
+      reason: sql<string>`''`,
+      cancelledAt: timeblocksTable.updatedAt
+    })
+      .from(timeblocksTable)
+      .where(and(eq(timeblocksTable.status, "cancelled"), gte(timeblocksTable.startTime, new Date())));
+
+    const regularData = await db.select({
+      studentId: regularInvitationsTable.studentClerkId,
+      startTime: cancelledRegularSessionsTable.cancelledDate,
+      type: sql<string>`'regular'`,
+      reason: cancelledRegularSessionsTable.reason,
+      cancelledAt: cancelledRegularSessionsTable.createdAt,
+    })
+      .from(cancelledRegularSessionsTable)
+      .innerJoin(regularInvitationsTable, eq(regularInvitationsTable.id, cancelledRegularSessionsTable.invitationId))
+      .where(gte(cancelledRegularSessionsTable.cancelledDate, new Date()))
+
+    const studentIdsTimeblock = [...new Set(timeblockData.map(s => s.studentId))];
+    const userMapTimeblock = await getUserNames(studentIdsTimeblock);
+    const dataTimeblock = timeblockData.map(s => ({
+      ...s,
+      studentName: userMapTimeblock.get(s.studentId) ?? "Unknown",
+    }));
+
+    const studentIdsRegular = [...new Set(regularData.map(s => s.studentId).filter((id): id is string => id !== null))];
+    const userMapRegular = await getUserNames(studentIdsRegular);
+    const dataRegular= regularData.map(s => ({
+      ...s,
+      studentName: s.studentId ? (userMapRegular.get(s.studentId) ?? "Unknown") : "Unknown",
+    }));
+
+
+
+    return {message: "Success", status: 200, data: [...dataTimeblock, ...dataRegular] as AllCancelledSessions[]}
+
+
+  } catch (error) {
+    console.error(error);
+    return {message: "Error fetching cancelled sessions", status: 500, data: [] as AllCancelledSessions[]};
   }
 }

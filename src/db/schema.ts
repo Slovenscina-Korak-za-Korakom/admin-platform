@@ -60,6 +60,7 @@ export const timeblocksTable = pgTable("timeblocks", {
   sessionType: varchar({length: 255}).notNull(),
   location: varchar({length: 255}).notNull(),
   studentId: varchar({length: 128}).notNull(),
+  updatedAt: timestamp().notNull().defaultNow(),
 });
 
 export const tutorsTable = pgTable("tutors", {
