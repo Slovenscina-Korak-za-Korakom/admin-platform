@@ -344,7 +344,7 @@ export const getAllRegularSessions = async () => {
     const regularSessions = await db.select({
       id: regularInvitationsTable.id,
       tutorId: regularInvitationsTable.tutorId,
-      studentId: tutorsTable.clerkId,
+      studentId: regularInvitationsTable.studentClerkId,
       dayOfWeek: regularInvitationsTable.dayOfWeek,
       startTime: regularInvitationsTable.startTime,
       status: regularInvitationsTable.status,
@@ -357,11 +357,11 @@ export const getAllRegularSessions = async () => {
       .where(eq(tutorsTable.clerkId, userId)).orderBy(regularInvitationsTable.dayOfWeek, regularInvitationsTable.startTime);
 
 
-    const studentIds = [...new Set(regularSessions.map(s => s.studentId))];
+    const studentIds = [...new Set(regularSessions.map(s => s.studentId).filter((id): id is string => id !== null))];
     const userMap = await getUserNames(studentIds);
     const data = regularSessions.map(s => ({
       ...s,
-      studentName: userMap.get(s.studentId) ?? "Unknown",
+      studentName: s.studentId ? (userMap.get(s.studentId) ?? "Unknown") : "Unknown",
     }));
 
     return {
@@ -384,7 +384,7 @@ export const getAllRegularSessions = async () => {
 export const getUserNames = async (studentIds: string[] ): Promise<Map<string, string>> => {
   const client = await clerkClient();
   const {data: users} = await client.users.getUserList({userId: studentIds});
-  return new Map(users.map(u => [u.id, u.fullName ?? "Unknown"]));
+  return new Map(users.map(u => [u.id, u.fullName ?? "Unknown"])); // TODO: Get avatar link as well
 }
 
 export const getTodaySessions = async (timezone: string = "UTC") => {
@@ -397,6 +397,7 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
     const nowInTZ = toZonedTime(new Date(), timezone);
     const startOfToday = fromZonedTime(startOfDay(nowInTZ), timezone);
     const startOfTomorrow = fromZonedTime(addDays(startOfDay(nowInTZ), 1), timezone);
+    const todayDayOfWeek = nowInTZ.getDay();
 
     const sessions = await db.select({
       id: timeblocksTable.id,
@@ -414,12 +415,60 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
         lt(timeblocksTable.startTime, startOfTomorrow),
       )).orderBy(timeblocksTable.startTime);
 
-    const studentIds = [...new Set(sessions.map(s => s.studentId))];
-    const userMap = await getUserNames(studentIds);
-    const data = sessions.map(s => ({
+    const regularSessions = await db.select({
+      id: regularInvitationsTable.id,
+      tutorId: regularInvitationsTable.tutorId,
+      studentId: regularInvitationsTable.studentClerkId,
+      startTime: regularInvitationsTable.startTime,
+      duration: regularInvitationsTable.duration,
+    }).from(regularInvitationsTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
+      .where(and(
+        eq(tutorsTable.clerkId, userId),
+        eq(regularInvitationsTable.dayOfWeek, todayDayOfWeek),
+        eq(regularInvitationsTable.status, "accepted"),
+      ));
+
+    const cancelledToday = await db.select({
+      invitationId: cancelledRegularSessionsTable.invitationId,
+    }).from(cancelledRegularSessionsTable)
+      .where(and(
+        gte(cancelledRegularSessionsTable.cancelledDate, startOfToday),
+        lt(cancelledRegularSessionsTable.cancelledDate, startOfTomorrow),
+      ));
+
+    const cancelledIds = new Set(cancelledToday.map(c => c.invitationId));
+
+    const allStudentIds = [...new Set([
+      ...sessions.map(s => s.studentId),
+      ...regularSessions.map(s => s.studentId).filter((id): id is string => id !== null),
+    ])];
+    const userMap = await getUserNames(allStudentIds);
+
+    const timeblocksData = sessions.map(s => ({
       ...s,
       studentName: userMap.get(s.studentId) ?? "Unknown",
     }));
+
+    const regularData = regularSessions.map(s => {
+      const [hours, minutes] = s.startTime.split(":").map(Number);
+      const now = new Date();
+      const startTimeUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0, 0));
+      return {
+        id: s.id,
+        tutorId: s.tutorId,
+        studentId: s.studentId ?? "",
+        studentName: s.studentId ? (userMap.get(s.studentId) ?? "Unknown") : "Unknown",
+        startTime: startTimeUtc,
+        type: "regular",
+        duration: s.duration,
+        status: !cancelledIds.has(s.id) ? "regular": "cancelled",
+      };
+    });
+
+    const data = [...timeblocksData, ...regularData].sort(
+      (a, b) => a.startTime.getTime() - b.startTime.getTime()
+    );
 
     return {message: "Success", status: 200, data: data as TodaySessions[]};
 

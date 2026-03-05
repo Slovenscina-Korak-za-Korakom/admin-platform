@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {
   IconCalendarEvent,
   IconClock,
@@ -23,7 +23,7 @@ export function formatDuration(minutes: number) {
 }
 
 
-export const TutorDashboard = async ({timezone}: {timezone: string}) => {
+export const TutorDashboard = async ({timezone}: { timezone: string }) => {
 
   const [cancelledSessions, allRegularSessions, todaysSessions] = await Promise.all([
     getAllCancelledSessions(),
@@ -31,16 +31,30 @@ export const TutorDashboard = async ({timezone}: {timezone: string}) => {
     getTodaySessions(timezone)
   ])
 
+  const regularStudents = new Map<string, { name: string; count: number }>();
+  allRegularSessions.data
+    .filter((s) => s.status === "accepted")
+    .forEach((s) => {
+      const existing = regularStudents.get(s.studentId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        regularStudents.set(s.studentId, {name: s.studentName, count: 1});
+      }
+    });
+
+
   return (
     <div className="flex flex-col gap-6 p-6">
 
       {/* Stat summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="relative overflow-hidden border-l-4 border-l-sky-500 bg-gradient-to-br from-sky-100/70 via-blue-50/40 to-transparent dark:from-sky-950/40 dark:via-blue-950/20 dark:to-transparent shadow-sm">
+        <Card
+          className="relative overflow-hidden border-l-4 border-l-sky-500 bg-gradient-to-br from-sky-100/70 via-blue-50/40 to-transparent dark:from-sky-950/40 dark:via-blue-950/20 dark:to-transparent shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-sky-900 dark:text-sky-100">Todays Sessions</CardTitle>
             <div className="p-2.5 rounded-lg bg-gradient-to-br from-sky-400/20 to-blue-500/20 border border-sky-400/40">
-              <IconCalendarEvent className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+              <IconCalendarEvent className="h-5 w-5 text-sky-600 dark:text-sky-400"/>
             </div>
           </CardHeader>
           <CardContent>
@@ -51,11 +65,13 @@ export const TutorDashboard = async ({timezone}: {timezone: string}) => {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-100/70 via-purple-50/40 to-transparent dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-transparent shadow-sm">
+        <Card
+          className="relative overflow-hidden border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-100/70 via-purple-50/40 to-transparent dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-transparent shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-indigo-900 dark:text-indigo-100">Teaching Hours</CardTitle>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-indigo-400/20 to-purple-500/20 border border-indigo-400/40">
-              <IconClock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div
+              className="p-2.5 rounded-lg bg-gradient-to-br from-indigo-400/20 to-purple-500/20 border border-indigo-400/40">
+              <IconClock className="h-5 w-5 text-indigo-600 dark:text-indigo-400"/>
             </div>
           </CardHeader>
           <CardContent>
@@ -68,27 +84,30 @@ export const TutorDashboard = async ({timezone}: {timezone: string}) => {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-l-4 border-l-violet-500 bg-gradient-to-br from-violet-100/70 via-fuchsia-50/40 to-transparent dark:from-violet-950/40 dark:via-fuchsia-950/20 dark:to-transparent shadow-sm">
+        <Card
+          className="relative overflow-hidden border-l-4 border-l-violet-500 bg-gradient-to-br from-violet-100/70 via-fuchsia-50/40 to-transparent dark:from-violet-950/40 dark:via-fuchsia-950/20 dark:to-transparent shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-violet-900 dark:text-violet-100">Regular Clients</CardTitle>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-violet-400/20 to-fuchsia-500/20 border border-violet-400/40">
-              <IconUsers className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            <div
+              className="p-2.5 rounded-lg bg-gradient-to-br from-violet-400/20 to-fuchsia-500/20 border border-violet-400/40">
+              <IconUsers className="h-5 w-5 text-violet-600 dark:text-violet-400"/>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-violet-700 dark:text-violet-300">{allRegularSessions.data.length} - narobe</div>
+            <div
+              className="text-2xl font-bold text-violet-700 dark:text-violet-300">{regularStudents.size}</div>
             <p className="text-xs text-violet-600/75 dark:text-violet-400/75 mt-1">Active weekly clients</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Cancellation Alerts */}
-      {cancelledSessions.data.length > 0 && <CancellationAlerts data={cancelledSessions.data} />}
+      {cancelledSessions.data.length > 0 && <CancellationAlerts data={cancelledSessions.data}/>}
 
       {/* Main content: Today's timeline + regular clients */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodayTimeline data={todaysSessions.data} />
-        <RegularClientsCard data={allRegularSessions.data} />
+        <TodayTimeline data={todaysSessions.data}/>
+        <RegularClientsCard data={allRegularSessions.data} sessionCounts={regularStudents}/>
       </div>
     </div>
   );

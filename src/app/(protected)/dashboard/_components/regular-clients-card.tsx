@@ -5,7 +5,13 @@ import {Avatar, AvatarFallback} from "@/components/ui/avatar";
 import {RegularSessionsWithName} from "@/actions/admin-actions";
 import {Badge} from "@/components/ui/badge";
 
-export const RegularClientsCard = ({data}: { data: RegularSessionsWithName[] }) => {
+export const RegularClientsCard = ({
+  data,
+  sessionCounts,
+}: {
+  data: RegularSessionsWithName[];
+  sessionCounts: Map<string, { name: string; count: number }>;
+}) => {
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -45,10 +51,16 @@ export const RegularClientsCard = ({data}: { data: RegularSessionsWithName[] }) 
                       className="rounded-lg text-white text-xs font-bold"
                       style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}
                     >
-                      {client.studentName.charAt(0)}
+                      {client.studentName.split(' ')[0][0]}
+                      {client.studentName.split(' ')[1][0]}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium flex-1 truncate">{client.studentName}</span>
+                  {client.status === "accepted" && (
+                    <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-100/60 dark:bg-violet-900/30 rounded px-1.5 py-0.5 shrink-0">
+                      {sessionCounts.get(client.studentId)?.count ?? 1}×/wk
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground font-mono">{client.startTime}</span>
                   <span className="text-xs text-muted-foreground">{formatDuration(client.duration)}</span>
                   <div className="w-16 flex justify-center shrink-0">
