@@ -14,7 +14,7 @@ export default async function DashboardPage({
   const {filter, tz} = await searchParams;
   const timezone = tz ?? "UTC";
 
-  if (isUserAdmin && false) return <AdminDashboard filter={filter} />;
+  if (isUserAdmin) return <AdminDashboard filter={filter} />;
 
   return (
     <>
@@ -23,9 +23,3 @@ export default async function DashboardPage({
     </>
   );
 }
-
-// TODO:  TUTOR DASHBOARD
-//  - notification cancellations on top
-//  - today's calendar (events)
-//  - list of clients (names) and when do they have the session (regulars)
-//  - list of confirmed regular clients
