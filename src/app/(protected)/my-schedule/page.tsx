@@ -29,36 +29,38 @@ function generateRecurringEvents(
 ): SessionData[] {
   const events: SessionData[] = [];
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   // Generate events for a rolling 3-month window
   const endDate = new Date(today);
-  endDate.setMonth(endDate.getMonth() + 3);
+  endDate.setUTCMonth(endDate.getUTCMonth() + 3);
 
-  // Create a Set of cancelled date strings for quick lookup
+  // Create a Set of cancelled date strings for quick lookup (UTC date)
   const cancelledSet = new Set(
     cancelledSessions.map(
-      (c) => `${c.invitationId}-${new Date(c.cancelledDate).toDateString()}`
+      (c) => `${c.invitationId}-${new Date(c.cancelledDate).toUTCString().slice(0, 16)}`
     )
   );
 
   for (const inv of invitations) {
-    // Find the first occurrence on or after today
+    // Find the first occurrence on or after today (using UTC day-of-week)
     const current = new Date(today);
-    const currentDayOfWeek = current.getDay();
+    const currentDayOfWeek = current.getUTCDay();
     let daysUntil = inv.dayOfWeek - currentDayOfWeek;
     if (daysUntil < 0) daysUntil += 7;
-    current.setDate(current.getDate() + daysUntil);
+    current.setUTCDate(current.getUTCDate() + daysUntil);
 
     const [hours, minutes] = inv.startTime.split(":").map(Number);
 
     while (current <= endDate) {
+      // Set the time in UTC so FullCalendar (which uses local timezone by default)
+      // converts it correctly to browser local time for display.
       const startTime = new Date(current);
-      startTime.setHours(hours, minutes, 0, 0);
+      startTime.setUTCHours(hours, minutes, 0, 0);
 
-      // Check if this specific session is cancelled
+      // Check if this specific session is cancelled (match on UTC date string)
       const isCancelled = cancelledSet.has(
-        `${inv.id}-${current.toDateString()}`
+        `${inv.id}-${current.toUTCString().slice(0, 16)}`
       );
 
       events.push({
@@ -73,7 +75,7 @@ function generateRecurringEvents(
         invitationId: inv.id,
       });
 
-      current.setDate(current.getDate() + 7);
+      current.setUTCDate(current.getUTCDate() + 7);
     }
   }
 
