@@ -51,11 +51,20 @@ interface CalendarEvent {
   studentClerkId?: string;
 }
 
-// Adjust a "HH:mm" string by a number of hours (positive or negative)
-const adjustTimeHours = (time: string, delta: number): string => {
-  const [h, m] = time.split(":").map(Number);
-  const adjusted = ((h + delta) % 24 + 24) % 24;
-  return `${adjusted.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+// Convert a UTC "HH:mm" string to the browser's local "HH:mm"
+export const utcTimeToLocal = (utcTime: string): string => {
+  const [h, m] = utcTime.split(":").map(Number);
+  const date = new Date();
+  date.setUTCHours(h, m, 0, 0);
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+};
+
+// Convert a local "HH:mm" string to UTC "HH:mm"
+const localTimeToUtc = (localTime: string): string => {
+  const [h, m] = localTime.split(":").map(Number);
+  const date = new Date();
+  date.setHours(h, m, 0, 0);
+  return `${date.getUTCHours().toString().padStart(2, "0")}:${date.getUTCMinutes().toString().padStart(2, "0")}`;
 };
 
 const getDefaultColorForSessionType = (sessionType: string): string => {
@@ -111,7 +120,7 @@ const ScheduleBuilder = () => {
           calendarEvents.push({
             id: timeSlot.id,
             dayOfWeek: daySchedule.day,
-            startTime: adjustTimeHours(timeSlot.startTime, +1), // Stored as UTC, display in local (CET = +1h)
+            startTime: utcTimeToLocal(timeSlot.startTime), // Stored as UTC, display in browser local time
             duration: timeSlot.duration,
             sessionType: timeSlot.sessionType,
             location: timeSlot.location,
@@ -442,7 +451,7 @@ const ScheduleBuilder = () => {
     events.forEach((event) => {
       const timeSlot: TimeSlot = {
         id: event.id,
-        startTime: adjustTimeHours(event.startTime, -1), // Convert local (CET) → UTC before saving
+        startTime: localTimeToUtc(event.startTime), // Convert browser local time → UTC before saving
         duration: event.duration,
         sessionType: event.sessionType as string,
         location: event.location,
@@ -574,6 +583,7 @@ const ScheduleBuilder = () => {
       {/* Full Screen Calendar */}
       <FullCalendar
         ref={calendarRef}
+        locale="en-GB"
         plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
         headerToolbar={false}
@@ -589,8 +599,10 @@ const ScheduleBuilder = () => {
         dayMaxEvents={false}
         weekends={true}
         firstDay={1} // Monday
-        slotMinTime="06:00:00"
+        slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
+        scrollTime="08:00:00"
+        slotLabelFormat={{hour: "2-digit", minute: "2-digit", hour12: false}}
         slotDuration="00:15:00"
         select={handleDateSelect}
         eventClick={handleEventClick}
@@ -598,7 +610,7 @@ const ScheduleBuilder = () => {
         eventResize={handleEventResize}
         events={calendarEvents}
         selectConstraint={{
-          start: "06:00",
+          start: "00:00",
           end: "24:00",
         }}
         dayHeaderFormat={{weekday: "short"}}

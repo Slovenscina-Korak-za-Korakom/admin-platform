@@ -14,7 +14,7 @@ export default async function DashboardPage({
   const {filter, tz} = await searchParams;
   const timezone = tz ?? "UTC";
 
-  if (isUserAdmin) return <AdminDashboard filter={filter} />;
+  if (isUserAdmin && false) return <AdminDashboard filter={filter} />;
 
   return (
     <>

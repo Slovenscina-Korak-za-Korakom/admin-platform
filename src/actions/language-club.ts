@@ -82,7 +82,6 @@ export async function getBookingByTheme(theme: string) {
     const booking = await db.query.langClubTable.findMany({
       where: ilike(langClubTable.theme, `%${theme}%`),
     });
-    console.log(booking);
     return booking;
   } catch (error) {
     console.error(error);

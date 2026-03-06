@@ -11,7 +11,22 @@ import {
   IconBuilding,
   IconMail,
   IconX,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
+import {utcTimeToLocal} from "@/app/(protected)/my-schedule/_components/schedule-builder";
+
+const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
+  const today = new Date();
+  const todayOffset = today.getTimezoneOffset();
+  for (let i = 1; i <= 7; i++) {
+    const future = new Date(today);
+    future.setDate(today.getDate() + i);
+    if (future.getTimezoneOffset() !== todayOffset) {
+      return {changing: true, date: future};
+    }
+  }
+  return {changing: false};
+};
 
 interface TimeSlot {
   id: string;
@@ -86,6 +101,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
   onConfirm,
   getDayLabel,
 }) => {
+  const dstInfo = getDstChangeInfo();
   const totalDays = daySchedules.length;
 
   const totalDuration = daySchedules.reduce(
@@ -99,8 +115,6 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
     });
     return acc;
   }, {} as Record<string, number>);
-
-  console.log("SESSION_TYPE_CONFIG", sessionTypeCounts)
 
   const sessionTypeDurations = daySchedules.reduce((acc, day) => {
     day.timeSlots.forEach((slot) => {
@@ -240,6 +254,17 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
             </button>
           </div>
 
+          {/* DST warning */}
+          {dstInfo.changing && dstInfo.date && (
+            <div className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+              <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5"/>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                <span className="font-semibold">Clock change on {dstInfo.date.toLocaleDateString("en-GB", {weekday: "long", month: "long", day: "numeric"})}.</span>{" "}
+                Times shown are based on your current UTC offset — sessions may shift by 1 hour after the change.
+              </p>
+            </div>
+          )}
+
           {/* Scrollable timeline */}
           <div className="flex-1 overflow-y-auto px-5 py-5">
             <div className="space-y-7">
@@ -274,7 +299,8 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                         LOCATION_CONFIG[slot.location as keyof typeof LOCATION_CONFIG] ||
                         LOCATION_CONFIG.online;
                       const LocationIcon = locationConfig.icon;
-                      const endTime = calculateEndTime(slot.startTime, slot.duration);
+                      const localStart = utcTimeToLocal(slot.startTime);
+                      const endTime = calculateEndTime(localStart, slot.duration);
                       const slotColor = slot.color || sessionConfig.color;
 
                       return (
@@ -295,7 +321,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                           {/* Time column */}
                           <div className="shrink-0 text-right w-[52px]">
                             <div className="text-sm font-bold text-foreground tabular-nums leading-tight">
-                              {slot.startTime}
+                              {localStart}
                             </div>
                             <div className="text-[11px] text-muted-foreground tabular-nums leading-tight">
                               {endTime}
