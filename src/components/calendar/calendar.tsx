@@ -40,7 +40,7 @@ export default function Calendar({data}: { data: SessionData[] }) {
   >(null);
   const [isEventSheetOpen, setIsEventSheetOpen] = useState(false);
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
-  const [calendarTitle, setCalendarTitle] = useState(new Date().toLocaleDateString("en-US", {
+  const [calendarTitle, setCalendarTitle] = useState(new Date().toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   }));

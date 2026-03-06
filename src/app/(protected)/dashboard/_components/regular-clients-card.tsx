@@ -6,26 +6,8 @@ import {formatDuration} from "@/app/(protected)/dashboard/_components/tutor-dash
 import {Avatar, AvatarFallback} from "@/components/ui/avatar";
 import {RegularSessionsWithName} from "@/actions/admin-actions";
 import {Badge} from "@/components/ui/badge";
-
-const utcTimeToLocal = (utcTime: string): string => {
-  const [h, m] = utcTime.split(":").map(Number);
-  const date = new Date();
-  date.setUTCHours(h, m, 0, 0);
-  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-};
-
-const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
-  const today = new Date();
-  const todayOffset = today.getTimezoneOffset();
-  for (let i = 1; i <= 7; i++) {
-    const future = new Date(today);
-    future.setDate(today.getDate() + i);
-    if (future.getTimezoneOffset() !== todayOffset) {
-      return {changing: true, date: future};
-    }
-  }
-  return {changing: false};
-};
+import {utcTimeToLocal} from "@/app/(protected)/my-schedule/_components/schedule-builder";
+import {getDstChangeInfo} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
 
 export const RegularClientsCard = ({
   data,

@@ -15,7 +15,7 @@ import {
 } from "@tabler/icons-react";
 import {utcTimeToLocal} from "@/app/(protected)/my-schedule/_components/schedule-builder";
 
-const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
+export const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
   const today = new Date();
   const todayOffset = today.getTimezoneOffset();
   for (let i = 1; i <= 7; i++) {
