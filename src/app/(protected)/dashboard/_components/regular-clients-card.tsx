@@ -1,9 +1,31 @@
+"use client";
+
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {IconCircleCheck, IconUsers} from "@tabler/icons-react";
+import {IconAlertTriangle, IconCircleCheck, IconUsers} from "@tabler/icons-react";
 import {formatDuration} from "@/app/(protected)/dashboard/_components/tutor-dashboard";
 import {Avatar, AvatarFallback} from "@/components/ui/avatar";
 import {RegularSessionsWithName} from "@/actions/admin-actions";
 import {Badge} from "@/components/ui/badge";
+
+const utcTimeToLocal = (utcTime: string): string => {
+  const [h, m] = utcTime.split(":").map(Number);
+  const date = new Date();
+  date.setUTCHours(h, m, 0, 0);
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+};
+
+const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
+  const today = new Date();
+  const todayOffset = today.getTimezoneOffset();
+  for (let i = 1; i <= 7; i++) {
+    const future = new Date(today);
+    future.setDate(today.getDate() + i);
+    if (future.getTimezoneOffset() !== todayOffset) {
+      return {changing: true, date: future};
+    }
+  }
+  return {changing: false};
+};
 
 export const RegularClientsCard = ({
   data,
@@ -13,6 +35,7 @@ export const RegularClientsCard = ({
   sessionCounts: Map<string, { name: string; count: number }>;
 }) => {
 
+  const dstInfo = getDstChangeInfo();
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const byDay = data.reduce<Record<number, RegularSessionsWithName[]>>((acc, session) => {
@@ -36,6 +59,15 @@ export const RegularClientsCard = ({
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-4">
+        {dstInfo.changing && dstInfo.date && (
+          <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5"/>
+            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              <span className="font-semibold">Clock change on {dstInfo.date.toLocaleDateString("en-GB", {weekday: "long", month: "long", day: "numeric"})}.</span>{" "}
+              <br/>Times shown are based on your current UTC offset — sessions may shift by 1 hour after the change.
+            </p>
+          </div>
+        )}
         {sortedDayNumbers.map((dayNum) => (
           <div key={dayNum}>
             <p
@@ -61,7 +93,7 @@ export const RegularClientsCard = ({
                       {sessionCounts.get(client.studentId)?.count ?? 1}×/wk
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground font-mono">{client.startTime}</span>
+                  <span className="text-xs text-muted-foreground font-mono">{utcTimeToLocal(client.startTime)}</span>
                   <span className="text-xs text-muted-foreground">{formatDuration(client.duration)}</span>
                   <div className="w-16 flex justify-center shrink-0">
                     {client.status === "accepted" ? (
