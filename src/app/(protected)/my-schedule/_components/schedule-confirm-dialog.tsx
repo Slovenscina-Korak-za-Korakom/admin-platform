@@ -12,8 +12,9 @@ import {
   IconMail,
   IconX,
   IconAlertTriangle,
+  IconPencil,
 } from "@tabler/icons-react";
-import {utcTimeToLocal} from "@/app/(protected)/my-schedule/_components/schedule-builder";
+import {utcTimeToLocal, type CalendarEvent, type SlotDiff} from "@/app/(protected)/my-schedule/_components/schedule-builder";
 
 export const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
   const today = new Date();
@@ -91,6 +92,7 @@ interface ScheduleConfirmDialogProps {
   totalSlots: number;
   onConfirm: () => void;
   getDayLabel: (dayValue: number) => string;
+  diff?: SlotDiff | null;
 }
 
 export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
@@ -100,7 +102,23 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
   totalSlots,
   onConfirm,
   getDayLabel,
+  diff,
 }) => {
+  const getModifiedFields = (before: CalendarEvent, after: CalendarEvent): string => {
+    const changes: string[] = [];
+    if (before.dayOfWeek !== after.dayOfWeek)
+      changes.push(`${getDayLabel(before.dayOfWeek)} → ${getDayLabel(after.dayOfWeek)}`);
+    if (before.startTime !== after.startTime)
+      changes.push(`${before.startTime} → ${after.startTime}`);
+    if (before.duration !== after.duration)
+      changes.push(`${formatDuration(before.duration)} → ${formatDuration(after.duration)}`);
+    if (before.sessionType !== after.sessionType)
+      changes.push(`${before.sessionType} → ${after.sessionType}`);
+    if (before.location !== after.location)
+      changes.push(`${before.location} → ${after.location}`);
+    return changes.join(" · ") || "updated";
+  };
+
   const dstInfo = getDstChangeInfo();
   const totalDays = daySchedules.length;
 
@@ -126,12 +144,12 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
-        className="
-          sm:max-w-[780px] p-0 gap-0 border-0 shadow-2xl rounded-2xl overflow-hidden
+        className={`
+          ${diff ? "sm:max-w-[980px]" : "sm:max-w-[780px]"} p-0 gap-0 border-0 shadow-2xl rounded-2xl overflow-hidden
           flex flex-col sm:flex-row
           max-h-[88vh] sm:h-[620px]
           [&>button:last-child]:hidden
-        "
+        `}
       >
         <DialogTitle className="sr-only">Schedule Overview</DialogTitle>
         <DialogDescription className="sr-only">Review every slot before confirming</DialogDescription>
@@ -380,6 +398,78 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
             </div>
           </div>
         </div>
+
+        {/* ── RIGHT PANEL ── changes */}
+        {diff && (
+          <div className="sm:w-[200px] shrink-0 flex flex-col border-l border-border/60 bg-background">
+            {/* Header */}
+            <div className="px-4 pt-5 pb-4 border-b border-border/60 shrink-0">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                Changes
+              </p>
+              <h3 className="text-sm font-bold text-foreground leading-snug">
+                From previous<br/>schedule
+              </h3>
+              <div className="flex items-center gap-1.5 mt-3">
+                {diff.added.length > 0 && (
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                    +{diff.added.length}
+                  </span>
+                )}
+                {diff.removed.length > 0 && (
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
+                    −{diff.removed.length}
+                  </span>
+                )}
+                {diff.modified.length > 0 && (
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex items-center gap-0.5">
+                    <IconPencil className="h-2.5 w-2.5"/>{diff.modified.length}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable change list */}
+            <div className="flex-1 overflow-y-auto divide-y divide-border/40">
+              {diff.added.map((e) => (
+                <div key={e.id} className="px-4 py-2.5 bg-emerald-50/50 dark:bg-emerald-950/10">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">+</span>
+                    <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground capitalize pl-3.5">
+                    {e.sessionType} · {formatDuration(e.duration)}
+                  </p>
+                </div>
+              ))}
+              {diff.removed.map((e) => (
+                <div key={e.id} className="px-4 py-2.5 bg-red-50/50 dark:bg-red-950/10">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400">−</span>
+                    <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground capitalize pl-3.5">
+                    {e.sessionType} · {formatDuration(e.duration)}
+                  </p>
+                </div>
+              ))}
+              {diff.modified.map(({before, after}) => (
+                <div key={before.id} className="px-4 py-2.5 bg-blue-50/50 dark:bg-blue-950/10">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <IconPencil className="h-3 w-3 shrink-0 text-blue-500 dark:text-blue-400"/>
+                    <span className="text-[11px] font-semibold text-foreground">{getDayLabel(after.dayOfWeek)}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{after.startTime}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate pl-3.5">
+                    {getModifiedFields(before, after)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

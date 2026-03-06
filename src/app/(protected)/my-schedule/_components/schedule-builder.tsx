@@ -38,7 +38,7 @@ interface DaySchedule {
   timeSlots: TimeSlot[];
 }
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
   startTime: string; // HH:mm format
@@ -49,6 +49,12 @@ interface CalendarEvent {
   color: string;
   email?: string;
   studentClerkId?: string;
+}
+
+export interface SlotDiff {
+  added: CalendarEvent[];
+  removed: CalendarEvent[];
+  modified: {before: CalendarEvent; after: CalendarEvent}[];
 }
 
 // Convert a UTC "HH:mm" string to the browser's local "HH:mm"
@@ -109,6 +115,8 @@ const ScheduleBuilder = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
+  const [originalEvents, setOriginalEvents] = useState<CalendarEvent[] | null>(null);
+  const [scheduleDiff, setScheduleDiff] = useState<SlotDiff | null>(null);
 
   // Convert DaySchedule[] to CalendarEvent[]
   const convertDaySchedulesToEvents = useCallback(
@@ -153,6 +161,7 @@ const ScheduleBuilder = () => {
           const daySchedules = scheduleResult.data as DaySchedule[];
           const loadedEvents = convertDaySchedulesToEvents(daySchedules);
           setEvents(loadedEvents);
+          setOriginalEvents(loadedEvents);
         } else if (scheduleResult.status === 404) {
           // No schedule found, start with an empty state
           setEvents([]);
@@ -478,6 +487,37 @@ const ScheduleBuilder = () => {
       .sort((a, b) => (a.day === 0 ? 7 : a.day) - (b.day === 0 ? 7 : b.day));
   }, [events]);
 
+  const computeDiff = useCallback((): SlotDiff | null => {
+    if (!originalEvents) return null;
+
+    const originalMap = new Map(originalEvents.map((e) => [e.id, e]));
+    const currentMap = new Map(events.map((e) => [e.id, e]));
+
+    const added = events.filter((e) => !originalMap.has(e.id));
+    const removed = originalEvents.filter((e) => !currentMap.has(e.id));
+    const modified: {before: CalendarEvent; after: CalendarEvent}[] = [];
+
+    for (const current of events) {
+      const original = originalMap.get(current.id);
+      if (!original) continue;
+      if (
+        original.dayOfWeek !== current.dayOfWeek ||
+        original.startTime !== current.startTime ||
+        original.duration !== current.duration ||
+        original.sessionType !== current.sessionType ||
+        original.location !== current.location ||
+        (original.description ?? "") !== (current.description ?? "") ||
+        (original.email ?? "") !== (current.email ?? "") ||
+        (original.studentClerkId ?? "") !== (current.studentClerkId ?? "")
+      ) {
+        modified.push({before: original, after: current});
+      }
+    }
+
+    if (added.length === 0 && removed.length === 0 && modified.length === 0) return null;
+    return {added, removed, modified};
+  }, [originalEvents, events]);
+
   const handleSubmitClick = () => {
     const daySchedules = convertToDaySchedules();
 
@@ -486,6 +526,7 @@ const ScheduleBuilder = () => {
       return;
     }
 
+    setScheduleDiff(computeDiff());
     setIsConfirmDialogOpen(true);
   };
 
@@ -675,6 +716,7 @@ const ScheduleBuilder = () => {
         totalSlots={totalSlots}
         onConfirm={handleConfirmSubmit}
         getDayLabel={getDayLabel}
+        diff={scheduleDiff}
       />
     </div>
   );
