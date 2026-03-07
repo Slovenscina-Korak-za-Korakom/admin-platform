@@ -21,7 +21,7 @@ function getBaseUrl(): string {
   return "http://localhost:3001";
 }
 
-export const createSchedule = async (data: any) => {
+export const createSchedule = async (data: any, newRegularSlotIds?: string[]) => {
   const {userId} = await auth();
   if (!userId) {
     return {success: false, error: "Unauthorized"};
@@ -58,8 +58,8 @@ export const createSchedule = async (data: any) => {
       });
     }
 
-    // Process regulars invitations
-    await processRegularsInvitations(userId, data);
+    // Process regulars invitations (only for genuinely new slots)
+    await processRegularsInvitations(userId, data, newRegularSlotIds);
 
     return {success: true, message: "Schedule saved successfully"};
   } catch (error) {
@@ -68,7 +68,7 @@ export const createSchedule = async (data: any) => {
   }
 };
 
-async function processRegularsInvitations(userId: string, daySchedules: any[]) {
+async function processRegularsInvitations(userId: string, daySchedules: any[], newSlotIds?: string[]) {
   // Get tutor info
   const tutors = await db
     .select({id: tutorsTable.id, name: tutorsTable.name})
@@ -88,10 +88,14 @@ async function processRegularsInvitations(userId: string, daySchedules: any[]) {
     for (const slot of timeSlots) {
       if (slot.sessionType !== "regulars" || !slot.email || !slot.studentClerkId) continue;
 
+      // If the caller supplied a specific list of new slot IDs, skip any slot
+      // not in that list — this prevents re-inviting students on every save.
+      if (newSlotIds !== undefined && !newSlotIds.includes(slot.id)) continue;
+
       const studentEmail = slot.email as string;
       const studentClerkId = slot.studentClerkId as string;
 
-      // Check if invitation already exists for this tutor + email + day + time
+      // Safety-net: check if an invitation already exists for this tutor + email + day + time
       const existing = await db
         .select({id: regularInvitationsTable.id})
         .from(regularInvitationsTable)
@@ -388,6 +392,45 @@ export const cancelRegularSession = async (
   } catch (error) {
     console.error("Error cancelling session:", error);
     return {message: "Failed to cancel session", status: 500};
+  }
+};
+
+export const removeRegularScheduleBySlot = async (
+  studentEmail: string,
+  dayOfWeek: number,
+  startTimeUtc: string
+) => {
+  const {userId} = await auth();
+  if (!userId) return {message: "Unauthorized", status: 401};
+
+  try {
+    const tutors = await db
+      .select({id: tutorsTable.id})
+      .from(tutorsTable)
+      .where(eq(tutorsTable.clerkId, userId))
+      .limit(1);
+
+    if (tutors.length === 0) return {message: "Tutor not found", status: 404};
+
+    const invitation = await db
+      .select({id: regularInvitationsTable.id})
+      .from(regularInvitationsTable)
+      .where(
+        and(
+          eq(regularInvitationsTable.tutorId, tutors[0].id),
+          eq(regularInvitationsTable.studentEmail, studentEmail),
+          eq(regularInvitationsTable.dayOfWeek, dayOfWeek),
+          eq(regularInvitationsTable.startTime, startTimeUtc)
+        )
+      )
+      .limit(1);
+
+    if (invitation.length === 0) return {message: "Invitation not found", status: 404};
+
+    return removeRegularSchedule(invitation[0].id);
+  } catch (error) {
+    console.error("Error removing regular schedule by slot:", error);
+    return {message: "Failed to remove schedule", status: 500};
   }
 };
 

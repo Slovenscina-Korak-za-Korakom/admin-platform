@@ -93,6 +93,8 @@ interface ScheduleConfirmDialogProps {
   onConfirm: () => void;
   getDayLabel: (dayValue: number) => string;
   diff?: SlotDiff | null;
+  confirmedRemovals?: Set<string>;
+  onToggleRemoval?: (id: string) => void;
 }
 
 export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
@@ -103,6 +105,8 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
   onConfirm,
   getDayLabel,
   diff,
+  confirmedRemovals,
+  onToggleRemoval,
 }) => {
   const getModifiedFields = (before: CalendarEvent, after: CalendarEvent): string => {
     const changes: string[] = [];
@@ -443,18 +447,50 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                   </p>
                 </div>
               ))}
-              {diff.removed.map((e) => (
-                <div key={e.id} className="px-4 py-2.5 bg-red-50/50 dark:bg-red-950/10">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400">−</span>
-                    <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
+              {diff.removed.map((e) => {
+                if (e.sessionType === "regulars") {
+                  const checked = confirmedRemovals?.has(e.id) ?? false;
+                  return (
+                    <div key={e.id} className="px-4 py-2.5 bg-amber-50/60 dark:bg-amber-950/10 border-l-2 border-amber-400 dark:border-amber-600">
+                      <div className="flex items-start gap-1.5">
+                        <IconAlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5"/>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
+                            <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
+                          </div>
+                          {e.email && (
+                            <p className="text-[11px] text-muted-foreground truncate mb-1.5">{e.email}</p>
+                          )}
+                          <label className="flex items-center gap-1.5 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => onToggleRemoval?.(e.id)}
+                              className="w-3 h-3 accent-amber-500 cursor-pointer"
+                            />
+                            <span className="text-[11px] text-amber-700 dark:text-amber-400 group-hover:text-amber-900 dark:group-hover:text-amber-300 leading-tight">
+                              Notify student &amp; end recurring
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={e.id} className="px-4 py-2.5 bg-red-50/50 dark:bg-red-950/10">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[11px] font-bold text-red-600 dark:text-red-400">−</span>
+                      <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground capitalize pl-3.5">
+                      {e.sessionType} · {formatDuration(e.duration)}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground capitalize pl-3.5">
-                    {e.sessionType} · {formatDuration(e.duration)}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
               {diff.modified.map(({before, after}) => (
                 <div key={before.id} className="px-4 py-2.5 bg-blue-50/50 dark:bg-blue-950/10">
                   <div className="flex items-center gap-1.5 mb-0.5">

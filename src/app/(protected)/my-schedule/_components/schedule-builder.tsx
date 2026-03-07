@@ -13,11 +13,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 import {DateSelectArg, EventClickArg} from "@fullcalendar/core";
 import type {EventDropArg, EventResizeArg} from "@/components/calendar/types";
 import {Button} from "@/components/ui/button";
-import {IconCheck, IconLoader2} from "@tabler/icons-react";
+import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
+import {IconCheck, IconLoader2, IconAlertTriangle} from "@tabler/icons-react";
 import {ScheduleSheet} from "./schedule-sheet";
 import {ScheduleConfirmDialog} from "./schedule-confirm-dialog";
 import {toast} from "sonner";
-import {createSchedule, getUserSchedule, getStudents} from "@/actions/timeblocks";
+import {createSchedule, getUserSchedule, getStudents, removeRegularScheduleBySlot} from "@/actions/timeblocks";
 import type {Student} from "./schedule-sheet";
 import "@/components/calendar/calendar-styles.css";
 
@@ -117,6 +118,8 @@ const ScheduleBuilder = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [originalEvents, setOriginalEvents] = useState<CalendarEvent[] | null>(null);
   const [scheduleDiff, setScheduleDiff] = useState<SlotDiff | null>(null);
+  const [confirmedRemovals, setConfirmedRemovals] = useState<Set<string>>(new Set());
+  const [pendingDeleteRegular, setPendingDeleteRegular] = useState<CalendarEvent | null>(null);
 
   // Convert DaySchedule[] to CalendarEvent[]
   const convertDaySchedulesToEvents = useCallback(
@@ -440,8 +443,27 @@ const ScheduleBuilder = () => {
   const handleDeleteSlot = () => {
     if (!editingEvent) return;
 
+    const isEstablishedRegular =
+      editingEvent.sessionType === "regulars" &&
+      (originalEvents?.some((e) => e.id === editingEvent.id) ?? false);
+
+    if (isEstablishedRegular) {
+      setPendingDeleteRegular(editingEvent);
+      return;
+    }
+
     setEvents((prev) => prev.filter((e) => e.id !== editingEvent.id));
     toast.success("Time slot deleted");
+    setIsSheetOpen(false);
+    setSelectedSlot(null);
+    setEditingEvent(null);
+  };
+
+  const confirmDeleteRegular = () => {
+    if (!pendingDeleteRegular) return;
+    setEvents((prev) => prev.filter((e) => e.id !== pendingDeleteRegular.id));
+    toast.success("Regular session removed");
+    setPendingDeleteRegular(null);
     setIsSheetOpen(false);
     setSelectedSlot(null);
     setEditingEvent(null);
@@ -493,8 +515,8 @@ const ScheduleBuilder = () => {
     const originalMap = new Map(originalEvents.map((e) => [e.id, e]));
     const currentMap = new Map(events.map((e) => [e.id, e]));
 
-    const added = events.filter((e) => !originalMap.has(e.id));
-    const removed = originalEvents.filter((e) => !currentMap.has(e.id));
+    const rawAdded = events.filter((e) => !originalMap.has(e.id));
+    const rawRemoved = originalEvents.filter((e) => !currentMap.has(e.id));
     const modified: {before: CalendarEvent; after: CalendarEvent}[] = [];
 
     for (const current of events) {
@@ -514,6 +536,29 @@ const ScheduleBuilder = () => {
       }
     }
 
+    // If a slot was deleted and re-added with identical content (just a new ID),
+    // cancel it out of both buckets so it isn't treated as a change.
+    const sameContent = (a: CalendarEvent, b: CalendarEvent) =>
+      a.dayOfWeek === b.dayOfWeek &&
+      a.startTime === b.startTime &&
+      a.duration === b.duration &&
+      a.sessionType === b.sessionType &&
+      a.location === b.location &&
+      (a.email ?? "") === (b.email ?? "") &&
+      (a.studentClerkId ?? "") === (b.studentClerkId ?? "") &&
+      (a.description ?? "") === (b.description ?? "");
+
+    const remainingRemoved = [...rawRemoved];
+    const added = rawAdded.filter((addedSlot) => {
+      const matchIdx = remainingRemoved.findIndex((r) => sameContent(addedSlot, r));
+      if (matchIdx !== -1) {
+        remainingRemoved.splice(matchIdx, 1);
+        return false;
+      }
+      return true;
+    });
+    const removed = remainingRemoved;
+
     if (added.length === 0 && removed.length === 0 && modified.length === 0) return null;
     return {added, removed, modified};
   }, [originalEvents, events]);
@@ -526,20 +571,41 @@ const ScheduleBuilder = () => {
       return;
     }
 
-    setScheduleDiff(computeDiff());
+    const diff = computeDiff();
+    setScheduleDiff(diff);
+    setConfirmedRemovals(
+      new Set(
+        (diff?.removed ?? [])
+          .filter((e) => e.sessionType === "regulars")
+          .map((e) => e.id)
+      )
+    );
     setIsConfirmDialogOpen(true);
   };
 
   const handleConfirmSubmit = async () => {
     const daySchedules = convertToDaySchedules();
 
+    const newRegularSlotIds: string[] | undefined = originalEvents !== null
+      ? (scheduleDiff?.added ?? [])
+          .filter((e) => e.sessionType === "regulars")
+          .map((e) => e.id)
+      : undefined;
+
     setIsSubmitting(true);
     setIsConfirmDialogOpen(false);
 
     try {
-      const result = await createSchedule(daySchedules);
+      const result = await createSchedule(daySchedules, newRegularSlotIds);
 
       if (result?.success) {
+        // Remove regular sessions that the user confirmed
+        if (scheduleDiff) {
+          for (const slot of scheduleDiff.removed) {
+            if (slot.sessionType !== "regulars" || !confirmedRemovals.has(slot.id) || !slot.email) continue;
+            await removeRegularScheduleBySlot(slot.email, slot.dayOfWeek, localTimeToUtc(slot.startTime));
+          }
+        }
         toast.success("Schedule saved successfully!");
       } else {
         toast.error(result?.message || "Failed to save schedule");
@@ -709,6 +775,37 @@ const ScheduleBuilder = () => {
       />
 
       {/* Confirmation Dialog with Summary */}
+      {/* ── Regular session delete warning ── */}
+      <Dialog
+        open={pendingDeleteRegular !== null}
+        onOpenChange={(open) => { if (!open) setPendingDeleteRegular(null); }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <IconAlertTriangle className="h-5 w-5 text-amber-500 shrink-0"/>
+            Remove regular session?
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+            {pendingDeleteRegular?.email && (
+              <span className="block font-medium text-foreground mb-1">
+                {pendingDeleteRegular.email}
+              </span>
+            )}
+            This session will be removed from your schedule. You can still notify the student
+            from the confirmation dialog when you save.
+            This action cannot be undone without re-adding the session manually.
+          </DialogDescription>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setPendingDeleteRegular(null)}>
+              Keep session
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteRegular}>
+              Remove
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ScheduleConfirmDialog
         isOpen={isConfirmDialogOpen}
         onOpenChange={setIsConfirmDialogOpen}
@@ -717,6 +814,14 @@ const ScheduleBuilder = () => {
         onConfirm={handleConfirmSubmit}
         getDayLabel={getDayLabel}
         diff={scheduleDiff}
+        confirmedRemovals={confirmedRemovals}
+        onToggleRemoval={(id) =>
+          setConfirmedRemovals((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) { next.delete(id); } else { next.add(id); }
+            return next;
+          })
+        }
       />
     </div>
   );
