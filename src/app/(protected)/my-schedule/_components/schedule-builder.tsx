@@ -14,7 +14,7 @@ import {DateSelectArg, EventClickArg} from "@fullcalendar/core";
 import type {EventDropArg, EventResizeArg} from "@/components/calendar/types";
 import {Button} from "@/components/ui/button";
 import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
-import {IconCheck, IconLoader2, IconAlertTriangle} from "@tabler/icons-react";
+import {IconCheck, IconLoader2, IconAlertTriangle, IconCalendar} from "@tabler/icons-react";
 import {ScheduleSheet} from "./schedule-sheet";
 import {ScheduleConfirmDialog} from "./schedule-confirm-dialog";
 import {toast} from "sonner";
@@ -641,10 +641,14 @@ const ScheduleBuilder = () => {
           location: event.location,
           description: event.description,
           color: event.color,
+          email: event.email,
+          studentName: event.studentClerkId
+            ? students.find(s => s.clerkId === event.studentClerkId)?.name
+            : undefined,
         },
       };
     });
-  }, [events, getDateForDayOfWeek]);
+  }, [events, getDateForDayOfWeek, students]);
 
   const totalSlots = events.length;
 
@@ -654,112 +658,218 @@ const ScheduleBuilder = () => {
     );
   };
 
-  return (
-    <div className="h-[calc(100vh-4rem)] w-full flex flex-col relative">
-      {/* Floating Submit Button */}
-      <div className="absolute top-4 right-4 z-10">
-        <Button
-          onClick={handleSubmitClick}
-          disabled={totalSlots === 0 || isSubmitting || isLoading}
-          size="sm"
-        >
-          {isSubmitting ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"/>
-              Saving...
-            </>
-          ) : (
-            <>
-              <IconCheck className="h-4 w-4 mr-2"/>
-              Submit Schedule
-            </>
-          )}
-        </Button>
-      </div>
+  const totalMinutes = events.reduce((acc, e) => acc + e.duration, 0);
+  const totalHoursDisplay = totalMinutes >= 60
+    ? `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}m` : ""}`
+    : `${totalMinutes}m`;
 
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-20">
-          <div className="flex flex-col items-center gap-2">
-            <IconLoader2 className="h-8 w-8 animate-spin text-foreground"/>
-            <p className="text-sm text-muted-foreground">Loading schedule...</p>
+  return (
+    <div className="h-[calc(100vh-4rem)] w-full flex flex-col">
+
+      {/* ── Header bar ── */}
+      <div className="shrink-0 px-5 py-3 border-b border-border/60 flex items-center gap-3 bg-background">
+        {/* Brand icon + title */}
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+            style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+          >
+            <IconCalendar className="h-5 w-5 text-white"/>
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-foreground leading-tight">My Schedule</h1>
+            <p className="text-xs text-muted-foreground leading-tight">Weekly recurring sessions</p>
           </div>
         </div>
-      )}
 
-      {/* Full Screen Calendar */}
-      <FullCalendar
-        ref={calendarRef}
-        locale="en-GB"
-        plugins={[timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
-        headerToolbar={false}
-        height="100%"
-        allDaySlot={false}
-        editable={!isLoading}
-        eventStartEditable={!isLoading}
-        eventDurationEditable={!isLoading}
-        eventResizableFromStart={!isLoading}
-        eventOverlap={true}
-        selectable={!isLoading}
-        selectMirror={true}
-        dayMaxEvents={false}
-        weekends={true}
-        firstDay={1} // Monday
-        slotMinTime="00:00:00"
-        slotMaxTime="24:00:00"
-        scrollTime="08:00:00"
-        slotLabelFormat={{hour: "2-digit", minute: "2-digit", hour12: false}}
-        slotDuration="00:15:00"
-        select={handleDateSelect}
-        eventClick={handleEventClick}
-        eventDrop={handleEventDrop}
-        eventResize={handleEventResize}
-        events={calendarEvents}
-        selectConstraint={{
-          start: "00:00",
-          end: "24:00",
-        }}
-        dayHeaderFormat={{weekday: "short"}}
-        eventContent={(eventInfo) => {
-          return (
-            <div
-              style={{
-                backgroundColor: eventInfo.event.backgroundColor || "#3b82f6",
-                color: "#ffffff",
-                padding: "4px 8px",
-                borderRadius: "4px",
-                cursor: "pointer",
-                height: "100%",
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                fontWeight: 500,
-                fontSize: "0.875rem",
-                boxSizing: "border-box",
-              }}
-            >
-              <div style={{width: "100%", overflow: "hidden"}}>
+        {/* Stats chips */}
+        {totalSlots > 0 && !isLoading && (
+          <div className="flex items-center gap-1.5 ml-2">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
+              {totalSlots} {totalSlots === 1 ? "session" : "sessions"}
+            </span>
+            {totalMinutes > 0 && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50 tabular-nums">
+                {totalHoursDisplay}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Submit button */}
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={handleSubmitClick}
+            disabled={totalSlots === 0 || isSubmitting || isLoading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+          >
+            {isSubmitting ? (
+              <>
+                <IconLoader2 className="h-4 w-4 animate-spin"/>
+                Saving…
+              </>
+            ) : (
+              <>
+                <IconCheck className="h-4 w-4"/>
+                Submit Schedule
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Calendar area ── */}
+      <div className="flex-1 relative overflow-hidden">
+
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-20">
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+                style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+              >
+                <IconLoader2 className="h-6 w-6 text-white animate-spin"/>
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Loading schedule…</p>
+            </div>
+          </div>
+        )}
+
+        <FullCalendar
+          ref={calendarRef}
+          locale="en-GB"
+          plugins={[timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          headerToolbar={false}
+          height="100%"
+          allDaySlot={false}
+          editable={!isLoading}
+          eventStartEditable={!isLoading}
+          eventDurationEditable={!isLoading}
+          eventResizableFromStart={!isLoading}
+          eventOverlap={true}
+          selectable={!isLoading}
+          selectMirror={true}
+          dayMaxEvents={false}
+          weekends={true}
+          firstDay={1}
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
+          scrollTime="08:00:00"
+          slotLabelFormat={{hour: "2-digit", minute: "2-digit", hour12: false}}
+          slotDuration="00:15:00"
+          select={handleDateSelect}
+          eventClick={handleEventClick}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
+          events={calendarEvents}
+          selectConstraint={{start: "00:00", end: "24:00"}}
+          dayHeaderFormat={{weekday: "short"}}
+          eventContent={(eventInfo) => {
+            const color = eventInfo.event.backgroundColor || "#3b82f6";
+            const sessionType = eventInfo.event.extendedProps.sessionType || "individual";
+            const location = eventInfo.event.extendedProps.location || "online";
+            const email = eventInfo.event.extendedProps.email as string | undefined;
+            const studentName = eventInfo.event.extendedProps.studentName as string | undefined;
+            const sessionLabel = sessionType === "regulars" && studentName
+              ? studentName
+              : sessionType.charAt(0).toUpperCase() + sessionType.slice(1);
+            const locationLabel = location === "online" ? "Online" : "Classroom";
+
+            return (
+              <div
+                style={{
+                  backgroundColor: color,
+                  height: "100%",
+                  width: "100%",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                  position: "relative",
+                  boxSizing: "border-box",
+                  cursor: "pointer",
+                }}
+              >
+                {/* Top shine */}
                 <div
                   style={{
-                    fontWeight: 600,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    position: "absolute",
+                    top: 0, left: 0, right: 0,
+                    height: "45%",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 100%)",
+                    pointerEvents: "none",
+                  }}
+                />
+                {/* Left accent bar */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0, top: 0, bottom: 0,
+                    width: "3px",
+                    backgroundColor: "rgba(255,255,255,0.35)",
+                  }}
+                />
+                {/* Text content */}
+                <div
+                  style={{
+                    padding: "5px 8px 5px 10px",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-start",
+                    gap: "1px",
                   }}
                 >
-                  {eventInfo.event.title}
-                </div>
-                <div style={{fontSize: "0.75rem", opacity: 0.9}}>
-                  {eventInfo.timeText}
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      color: "#fff",
+                      lineHeight: 1.25,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {sessionLabel}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.68rem",
+                      color: "rgba(255,255,255,0.75)",
+                      lineHeight: 1.25,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {locationLabel} · {eventInfo.timeText}
+                  </div>
+                  {email && (
+                    <div
+                      style={{
+                        fontSize: "0.63rem",
+                        color: "rgba(255,255,255,0.6)",
+                        lineHeight: 1.2,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        marginTop: "1px",
+                      }}
+                    >
+                      {email}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          );
-        }}
-      />
+            );
+          }}
+        />
+      </div>
 
-      {/* Add/Edit Sheet */}
+      {/* ── Sheet ── */}
       <ScheduleSheet
         isOpen={isSheetOpen}
         onOpenChange={setIsSheetOpen}
@@ -774,7 +884,6 @@ const ScheduleBuilder = () => {
         students={students}
       />
 
-      {/* Confirmation Dialog with Summary */}
       {/* ── Regular session delete warning ── */}
       <Dialog
         open={pendingDeleteRegular !== null}
@@ -806,6 +915,7 @@ const ScheduleBuilder = () => {
         </DialogContent>
       </Dialog>
 
+      {/* ── Confirm dialog ── */}
       <ScheduleConfirmDialog
         isOpen={isConfirmDialogOpen}
         onOpenChange={setIsConfirmDialogOpen}

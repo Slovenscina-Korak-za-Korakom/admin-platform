@@ -38,7 +38,7 @@
   border-radius: 6px !important;
   font-weight: 500 !important;
   font-size: 0.875rem !important;
-  padding: 0px 0px !important;
+  padding: 0 0 !important;
   background: transparent !important;
   transition: all 0.2s ease !important;
   overflow: hidden;
@@ -191,6 +191,38 @@
 .fc-theme-standard .fc-col-header-cell-cushion {
   color: var(--foreground);
   font-weight: 600;
+}
+
+/* Timegrid column header */
+.fc-timeGridWeek-view .fc-col-header-cell {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.fc-timeGridWeek-view .fc-col-header-cell-cushion {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding: 8px 4px 6px;
+}
+
+/* Time axis labels */
+.fc-timegrid-slot-label-cushion {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+}
+
+/* Slot border styling */
+.fc-theme-standard .fc-timegrid-slot {
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.fc-theme-standard .fc-timegrid-slot-minor {
+  border-color: color-mix(in srgb, var(--border) 25%, transparent);
 }
 
 /* ===== BUTTON STYLING ===== */
@@ -376,7 +408,7 @@
 /* FullCalendar automatically handles event widths:
    - When events don't overlap: they take full width (100%)
    - When events overlap: they split the column width proportionally
-   
+
    We ensure our custom styling doesn't interfere with this behavior */
 
 /* Ensure event content fills the available width */
@@ -388,7 +420,7 @@
 /* FullCalendar automatically handles event width based on overlap:
    - Single non-overlapping events: full width (100% of column)
    - Overlapping events: split proportionally across available width
-   
+
    Our custom eventContent should not interfere with this behavior */
 
 /* ===== LIST VIEW STYLING ===== */
