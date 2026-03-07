@@ -384,64 +384,88 @@ export default function Calendar({data}: { data: SessionData[] }) {
             return dayNumber;
           }}
           eventContent={(eventInfo: any) => {
-            const startTime = new Date(eventInfo.event.start);
-            const endTime = new Date(eventInfo.event.end);
-            const timeString = `${startTime
-              .getHours()
-              .toString()
-              .padStart(2, "0")}:${startTime
-              .getMinutes()
-              .toString()
-              .padStart(2, "0")} - ${endTime
-              .getHours()
-              .toString()
-              .padStart(2, "0")}:${endTime
-              .getMinutes()
-              .toString()
-              .padStart(2, "0")}`;
+            const start = new Date(eventInfo.event.start);
+            const end = new Date(eventInfo.event.end);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            const timeString = `${pad(start.getHours())}:${pad(start.getMinutes())} – ${pad(end.getHours())}:${pad(end.getMinutes())}`;
 
             const status = eventInfo.event.extendedProps?.status;
-            const date = eventInfo.event.start;
             const sessionType = eventInfo.event.extendedProps?.sessionType;
-            const statusColor = getStatusColor(status, date, sessionType);
+            const color = getStatusColor(status, eventInfo.event.start, sessionType);
+            const isCompleted = status === "completed" || (start < new Date() && status === "booked");
+
+            // Student name is the first part of the title (before " - ")
+            const titleParts = (eventInfo.event.title as string).split(" - ");
+            const studentName = titleParts[0] ?? eventInfo.event.title;
+
             return (
               <div
-                className={`text-white text-sm font-medium w-full ${
-                  status === "completed" ? "opacity-75" : ""
-                }`}
                 style={{
-                  backgroundColor: statusColor,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  width: "100%",
+                  backgroundColor: color,
                   height: "100%",
-                  borderRadius: "6px",
-                  padding: "2px 0px 0px 8px",
+                  width: "100%",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                  position: "relative",
                   boxSizing: "border-box",
+                  opacity: isCompleted ? 0.72 : 1,
                 }}
               >
+                {/* Top shine */}
                 <div
-                  className="truncate capitalize font-bold"
                   style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    marginBottom: "0px",
+                    position: "absolute",
+                    top: 0, left: 0, right: 0,
+                    height: "45%",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 100%)",
+                    pointerEvents: "none",
+                  }}
+                />
+                {/* Left accent bar */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0, top: 0, bottom: 0,
+                    width: "3px",
+                    backgroundColor: "rgba(255,255,255,0.35)",
+                  }}
+                />
+                {/* Text */}
+                <div
+                  style={{
+                    padding: "5px 8px 5px 10px",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-start",
+                    gap: "1px",
                   }}
                 >
-                  {eventInfo.event.title}
-                </div>
-                <div
-                  className="text-xs opacity-80 truncate"
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    marginTop: "0px",
-                  }}
-                >
-                  {timeString}
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      color: "#fff",
+                      lineHeight: 1.25,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {studentName}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.68rem",
+                      color: "rgba(255,255,255,0.75)",
+                      lineHeight: 1.25,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {timeString}
+                  </div>
                 </div>
               </div>
             );
