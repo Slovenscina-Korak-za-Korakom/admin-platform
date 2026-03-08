@@ -16,15 +16,27 @@ import {
   Text,
 } from "@react-email/components";
 
-const DAYS_OF_WEEK = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const DAYS_OF_WEEK = {
+  en:
+    [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ],
+  ru: [
+    "Воскресенье",
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота",
+  ]
+}
 
 interface InvitationEmailProps {
   tutorName: string;
@@ -36,6 +48,51 @@ interface InvitationEmailProps {
   declineUrl: string;
 }
 
+const getEmailTranslations = (locale: string) => {
+  const translations = {
+    en: {
+      preview: "has invited you to a weekly tutoring session",
+      heading: "Session Invitation",
+      sub: "You've been invited to a recurring tutoring session",
+      paragraph: "has invited you to a weekly tutoring session. Here are the details:",
+      details: "Session Details",
+      day: "Day",
+      time: "Time",
+      dayofWeek: "Every",
+      duration: "Duration",
+      location: "Location",
+      accept: "Accept Invitation",
+      decline: "Decline",
+      disclaimer: "This invitation was sent by Slovenščina Korak za Korakom. If you did not expect this email, you can safely ignore it.",
+      about: "About",
+      pricing: "Pricing",
+      contact: "Contact",
+      copy: "Slovenščina Korak za Korakom. All Rights Reserved.",
+    },
+    ru: {
+      preview: "приглашает вас на еженедельные занятия с репетитором.",
+      heading: "Приглашение на урок",
+      sub: "Вас пригласили на регулярное занятие с репетитором.",
+      paragraph: "приглашает вас на еженедельные занятия с репетитором. Вот подробности:",
+      details: "Подробности урока",
+      day: "День",
+      time: "Время",
+      dayofWeek: "Каждый",
+      duration: "Продолжительность",
+      location: "Расположение",
+      accept: "Принять приглашение",
+      decline: "Отклонить",
+      disclaimer: "Это приглашение было отправлено организацией Slovenščina Korak za Korakom. Если вы не ожидали этого письма, можете смело его проигнорировать.",
+      about: "О нас",
+      pricing: "Цены",
+      contact: "Контакт",
+      copy: "Словенщина Корак за Кораком. Все права защищены.",
+    }
+  }
+
+  return translations[locale as keyof typeof translations] || translations.en;
+}
+
 export const InvitationEmail = ({
                                   tutorName,
                                   dayOfWeek,
@@ -45,19 +102,22 @@ export const InvitationEmail = ({
                                   acceptUrl,
                                   declineUrl,
                                 }: InvitationEmailProps) => {
+  const locale = "ru";
   const year = new Date().getFullYear();
-  const dayName = DAYS_OF_WEEK[dayOfWeek] ?? "Unknown";
+  const dayName = DAYS_OF_WEEK[locale][dayOfWeek] ?? "Unknown";
   const durationText =
     duration >= 60
       ? `${Math.floor(duration / 60)}h${duration % 60 > 0 ? ` ${duration % 60}m` : ""}`
       : `${duration} min`;
+
+  const t = getEmailTranslations(locale);
 
   return (
     <Html>
       <Head/>
       <Tailwind config={{presets: [pixelBasedPreset]}}>
         <Preview>
-          {tutorName} has invited you to a weekly tutoring session
+          {`${tutorName} ${t.preview}`}
         </Preview>
         <Body
           className="bg-gray-50 font-sans text-base"
@@ -127,7 +187,7 @@ export const InvitationEmail = ({
                       letterSpacing: "-0.5px",
                     }}
                   >
-                    Session Invitation
+                    {t.heading}
                   </Heading>
                   <Text
                     style={{
@@ -137,7 +197,7 @@ export const InvitationEmail = ({
                       margin: "0",
                     }}
                   >
-                    You&apos;ve been invited to a recurring tutoring session
+                    {t.sub}
                   </Text>
                 </Section>
               </Section>
@@ -163,8 +223,7 @@ export const InvitationEmail = ({
                     margin: "0",
                   }}
                 >
-                  <strong>{tutorName}</strong> has invited you to a weekly
-                  tutoring session. Here are the details:
+                  <strong>{tutorName}</strong> {t.paragraph}
                 </Text>
               </Section>
 
@@ -189,7 +248,7 @@ export const InvitationEmail = ({
                     letterSpacing: "-0.2px",
                   }}
                 >
-                  Session Details
+                  {t.details}
                 </Heading>
 
                 {/* Details Grid */}
@@ -205,7 +264,7 @@ export const InvitationEmail = ({
                           margin: "0",
                         }}
                       >
-                        Day
+                        {t.day}
                       </Text>
                     </Column>
                     <Column style={{width: "60%"}}>
@@ -218,7 +277,7 @@ export const InvitationEmail = ({
                           margin: "0",
                         }}
                       >
-                        Every {dayName}
+                        {`${t.dayofWeek} ${dayName}`}
                       </Text>
                     </Column>
                   </Row>
@@ -234,7 +293,7 @@ export const InvitationEmail = ({
                           margin: "0",
                         }}
                       >
-                        Time
+                        {t.time}
                       </Text>
                     </Column>
                     <Column style={{width: "60%"}}>
@@ -263,7 +322,7 @@ export const InvitationEmail = ({
                           margin: "0",
                         }}
                       >
-                        Duration
+                        {t.duration}
                       </Text>
                     </Column>
                     <Column style={{width: "60%"}}>
@@ -292,7 +351,7 @@ export const InvitationEmail = ({
                           margin: "0",
                         }}
                       >
-                        Location
+                        {t.location}
                       </Text>
                     </Column>
                     <Column style={{width: "60%"}}>
@@ -330,7 +389,7 @@ export const InvitationEmail = ({
                     marginRight: "12px",
                   }}
                 >
-                  Accept Invitation
+                  {t.accept}
                 </Button>
                 <Button
                   href={declineUrl}
@@ -346,7 +405,7 @@ export const InvitationEmail = ({
                     border: "1px solid #E5E7EB",
                   }}
                 >
-                  Decline
+                  {t.decline}
                 </Button>
               </Section>
 
@@ -366,8 +425,7 @@ export const InvitationEmail = ({
                     margin: "0",
                   }}
                 >
-                  This invitation was sent by Slovenščina Korak za Korakom. If you did
-                  not expect this email, you can safely ignore it.
+                  {t.disclaimer}
                 </Text>
               </Section>
             </Container>
@@ -389,7 +447,7 @@ export const InvitationEmail = ({
                             fontWeight: "500",
                           }}
                         >
-                          About
+                          {t.about}
                         </Link>
                       </td>
                       <td style={{padding: "0 12px"}}>
@@ -402,7 +460,7 @@ export const InvitationEmail = ({
                             fontWeight: "500",
                           }}
                         >
-                          Pricing
+                          {t.pricing}
                         </Link>
                       </td>
                       <td style={{padding: "0 12px"}}>
@@ -416,7 +474,7 @@ export const InvitationEmail = ({
                           }}
                           target={"_self"}
                         >
-                          Contact
+                          {t.contact}
                         </Link>
                       </td>
                     </tr>
@@ -433,7 +491,7 @@ export const InvitationEmail = ({
                   marginBottom: "0",
                 }}
               >
-                &copy; {year} Slovenščina Korak za Korakom. All Rights Reserved.
+                &copy;{`${year} ${t.copy}`}
               </Text>
             </Section>
 
