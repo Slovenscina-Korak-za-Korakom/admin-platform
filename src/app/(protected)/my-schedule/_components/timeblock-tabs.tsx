@@ -6,9 +6,11 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {
   IconCalendar,
   IconCalendarEvent,
+  IconCalendarPlus,
 } from "@tabler/icons-react";
 import ScheduleBuilder from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import Calendar from "@/components/calendar/calendar";
+import SessionScheduler from "@/app/(protected)/my-schedule/_components/session-scheduler";
 import {SessionData} from "@/components/calendar/types";
 
 const TimeblockTabs = ({
@@ -43,6 +45,10 @@ const TimeblockTabs = ({
           <IconCalendarEvent className="mr-2 h-4 w-4"/>
           My Schedule
         </TabsTrigger>
+        <TabsTrigger value="add-event" className="cursor-pointer">
+          <IconCalendarPlus className="mr-2 h-4 w-4"/>
+          Add Event
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto">
@@ -52,6 +58,10 @@ const TimeblockTabs = ({
       <TabsContent value="templates" className="flex-1 min-h-0 overflow-y-auto">
         <ScheduleBuilder/>
         {/*<ScheduleTemplateBuilder />*/}
+      </TabsContent>
+
+      <TabsContent value="add-event" className="flex-1 min-h-0 overflow-y-auto">
+        <SessionScheduler data={data}/>
       </TabsContent>
     </Tabs>
   );
