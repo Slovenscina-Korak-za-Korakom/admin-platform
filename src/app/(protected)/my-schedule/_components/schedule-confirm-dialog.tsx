@@ -14,7 +14,7 @@ import {
   IconAlertTriangle,
   IconPencil,
 } from "@tabler/icons-react";
-import {utcTimeToLocal, type CalendarEvent, type SlotDiff} from "@/app/(protected)/my-schedule/_components/schedule-builder";
+import {type CalendarEvent, type SlotDiff} from "@/app/(protected)/my-schedule/_components/schedule-builder";
 
 export const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
   const today = new Date();
@@ -321,7 +321,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                         LOCATION_CONFIG[slot.location as keyof typeof LOCATION_CONFIG] ||
                         LOCATION_CONFIG.online;
                       const LocationIcon = locationConfig.icon;
-                      const localStart = utcTimeToLocal(slot.startTime);
+                      const localStart = slot.startTime;
                       const endTime = calculateEndTime(localStart, slot.duration);
                       const slotColor = slot.color || sessionConfig.color;
 

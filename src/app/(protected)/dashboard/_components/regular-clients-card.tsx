@@ -6,7 +6,6 @@ import {formatDuration} from "@/app/(protected)/dashboard/_components/tutor-dash
 import {Avatar, AvatarFallback} from "@/components/ui/avatar";
 import {RegularSessionsWithName} from "@/actions/admin-actions";
 import {Badge} from "@/components/ui/badge";
-import {utcTimeToLocal} from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import {getDstChangeInfo} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
 
 export const RegularClientsCard = ({
@@ -75,7 +74,14 @@ export const RegularClientsCard = ({
                       {sessionCounts.get(client.studentId)?.count ?? 1}×/wk
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground font-mono">{utcTimeToLocal(client.startTime)}</span>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {client.startTime}
+                    {client.timezone && (
+                      <span className="ml-1 text-[10px] opacity-60">
+                        {client.timezone.split("/").pop()?.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-xs text-muted-foreground">{formatDuration(client.duration)}</span>
                   <div className="w-16 flex justify-center shrink-0">
                     {client.status === "accepted" ? (

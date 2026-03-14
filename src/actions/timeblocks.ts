@@ -21,7 +21,7 @@ function getBaseUrl(): string {
   return "http://localhost:3001";
 }
 
-export const createSchedule = async (data: any, newRegularSlotIds?: string[]) => {
+export const createSchedule = async (data: any, newRegularSlotIds?: string[], timezone?: string) => {
   const {userId} = await auth();
   if (!userId) {
     return {success: false, error: "Unauthorized"};
@@ -47,6 +47,7 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[]) =>
         .update(schedulesTable)
         .set({
           schedule: data,
+          timezone: timezone ?? null,
           updatedAt: new Date(),
         })
         .where(eq(schedulesTable.ownerId, userId));
@@ -55,11 +56,12 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[]) =>
       await db.insert(schedulesTable).values({
         ownerId: userId,
         schedule: data,
+        timezone: timezone ?? null,
       });
     }
 
     // Process regulars invitations (only for genuinely new slots)
-    await processRegularsInvitations(userId, data, newRegularSlotIds);
+    await processRegularsInvitations(userId, data, newRegularSlotIds, timezone);
 
     return {success: true, message: "Schedule saved successfully"};
   } catch (error) {
@@ -68,7 +70,7 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[]) =>
   }
 };
 
-async function processRegularsInvitations(userId: string, daySchedules: any[], newSlotIds?: string[]) {
+async function processRegularsInvitations(userId: string, daySchedules: any[], newSlotIds?: string[], timezone?: string) {
   // Get tutor info
   const tutors = await db
     .select({id: tutorsTable.id, name: tutorsTable.name})
@@ -124,6 +126,7 @@ async function processRegularsInvitations(userId: string, daySchedules: any[], n
         location: slot.location,
         description: slot.description || null,
         color: slot.color || null,
+        timezone: timezone ?? null,
       });
 
       const acceptUrl = `${baseUrl}/api/invitations/${token}?action=accept`;
@@ -213,6 +216,7 @@ export const getUserSchedule = async () => {
       .select({
         id: schedulesTable.id,
         schedule: schedulesTable.schedule,
+        timezone: schedulesTable.timezone,
         createdAt: schedulesTable.createdAt,
         updatedAt: schedulesTable.updatedAt,
       })
@@ -222,10 +226,10 @@ export const getUserSchedule = async () => {
       .limit(1);
 
     if (schedule.length === 0) {
-      return {data: null, status: 404};
+      return {data: null, timezone: null, status: 404};
     }
 
-    return {data: schedule[0].schedule, status: 200};
+    return {data: schedule[0].schedule, timezone: schedule[0].timezone, status: 200};
   } catch (error) {
     console.error("Error fetching user schedule:", error);
     return {message: "Error fetching user schedule", data: null, status: 500};
@@ -275,6 +279,7 @@ export const getAcceptedRegulars = async () => {
         location: regularInvitationsTable.location,
         description: regularInvitationsTable.description,
         color: regularInvitationsTable.color,
+        timezone: regularInvitationsTable.timezone,
       })
       .from(regularInvitationsTable)
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
@@ -398,7 +403,7 @@ export const cancelRegularSession = async (
 export const removeRegularScheduleBySlot = async (
   studentEmail: string,
   dayOfWeek: number,
-  startTimeUtc: string
+  startTime: string
 ) => {
   const {userId} = await auth();
   if (!userId) return {message: "Unauthorized", status: 401};
@@ -420,7 +425,7 @@ export const removeRegularScheduleBySlot = async (
           eq(regularInvitationsTable.tutorId, tutors[0].id),
           eq(regularInvitationsTable.studentEmail, studentEmail),
           eq(regularInvitationsTable.dayOfWeek, dayOfWeek),
-          eq(regularInvitationsTable.startTime, startTimeUtc)
+          eq(regularInvitationsTable.startTime, startTime)
         )
       )
       .limit(1);

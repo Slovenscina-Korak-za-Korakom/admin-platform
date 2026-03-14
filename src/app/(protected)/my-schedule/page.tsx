@@ -5,6 +5,7 @@ import { SessionData } from "@/components/calendar/types";
 import { checkTutorActivation } from "@/actions/admin-actions";
 import { ActivationWrapper } from "@/app/(protected)/my-schedule/_components/activation-wrapper";
 import { getScheduleData, getAcceptedRegulars, getCancelledSessions } from "@/actions/timeblocks";
+import { fromZonedTime } from "date-fns-tz";
 
 type SearchParams = {
   tab?: string;
@@ -18,9 +19,10 @@ function generateRecurringEvents(
     tutorId: number;
     studentClerkId: string | null;
     dayOfWeek: number;
-    startTime: string;
+    startTime: string; // wall-clock HH:mm in `timezone`
     duration: number;
     location: string;
+    timezone: string | null;
   }[],
   cancelledSessions: {
     invitationId: number;
@@ -50,13 +52,19 @@ function generateRecurringEvents(
     if (daysUntil < 0) daysUntil += 7;
     current.setUTCDate(current.getUTCDate() + daysUntil);
 
+    const tz = inv.timezone || "UTC";
     const [hours, minutes] = inv.startTime.split(":").map(Number);
+    const hh = hours.toString().padStart(2, "0");
+    const mm = minutes.toString().padStart(2, "0");
 
     while (current <= endDate) {
-      // Set the time in UTC so FullCalendar (which uses local timezone by default)
-      // converts it correctly to browser local time for display.
-      const startTime = new Date(current);
-      startTime.setUTCHours(hours, minutes, 0, 0);
+      // Build a wall-clock datetime string for this occurrence date in the stored
+      // timezone, then convert to a UTC Date so FullCalendar (local mode) displays
+      // the correct local time regardless of DST.
+      const y = current.getUTCFullYear();
+      const mo = (current.getUTCMonth() + 1).toString().padStart(2, "0");
+      const d = current.getUTCDate().toString().padStart(2, "0");
+      const startTime = fromZonedTime(`${y}-${mo}-${d}T${hh}:${mm}:00`, tz);
 
       // Check if this specific session is cancelled (match on UTC date string)
       const isCancelled = cancelledSet.has(

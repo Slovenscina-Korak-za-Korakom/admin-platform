@@ -42,10 +42,11 @@ export interface RegularSessionsWithName {
   tutorId: number;
   studentId: string;
   dayOfWeek: number;
-  startTime: string;
+  startTime: string; // wall-clock HH:mm in `timezone`
   status: string;
   duration: number;
   color: string | null;
+  timezone: string | null; // IANA name
   updatedAt: Date;
   studentName: string;
 }
@@ -350,6 +351,7 @@ export const getAllRegularSessions = async () => {
       status: regularInvitationsTable.status,
       duration: regularInvitationsTable.duration,
       color: regularInvitationsTable.color,
+      timezone: regularInvitationsTable.timezone,
       updatedAt: regularInvitationsTable.updatedAt,
     })
       .from(regularInvitationsTable)

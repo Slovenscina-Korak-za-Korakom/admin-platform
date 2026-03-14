@@ -79,6 +79,7 @@ export const schedulesTable = pgTable("schedules", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   ownerId: varchar({length: 255}).notNull(),
   schedule: jsonb().notNull(),
+  timezone: varchar({length: 100}), // IANA name, e.g. 'America/Los_Angeles'
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -93,11 +94,12 @@ export const regularInvitationsTable = pgTable("regular_invitations", {
   studentClerkId: varchar({length: 255}),
   status: varchar({length: 50}).notNull().default("pending"),
   dayOfWeek: integer().notNull(),
-  startTime: varchar({length: 10}).notNull(),
+  startTime: varchar({length: 10}).notNull(), // wall-clock HH:mm in `timezone`
   duration: integer().notNull(),
   location: varchar({length: 255}).notNull(),
   description: text(),
   color: varchar({length: 50}),
+  timezone: varchar({length: 100}), // IANA name, e.g. 'America/Los_Angeles'
   createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
   updatedAt: timestamp({withTimezone: true}).notNull().defaultNow(),
 });

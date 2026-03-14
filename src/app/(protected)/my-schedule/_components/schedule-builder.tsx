@@ -58,21 +58,9 @@ export interface SlotDiff {
   modified: {before: CalendarEvent; after: CalendarEvent}[];
 }
 
-// Convert a UTC "HH:mm" string to the browser's local "HH:mm"
-export const utcTimeToLocal = (utcTime: string): string => {
-  const [h, m] = utcTime.split(":").map(Number);
-  const date = new Date();
-  date.setUTCHours(h, m, 0, 0);
-  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-};
-
-// Convert a local "HH:mm" string to UTC "HH:mm"
-const localTimeToUtc = (localTime: string): string => {
-  const [h, m] = localTime.split(":").map(Number);
-  const date = new Date();
-  date.setHours(h, m, 0, 0);
-  return `${date.getUTCHours().toString().padStart(2, "0")}:${date.getUTCMinutes().toString().padStart(2, "0")}`;
-};
+// Recurring schedule times are stored as local wall-clock "HH:mm" (no UTC conversion).
+// Kept for backwards-compat with any callers that still import it; returns the value unchanged.
+export const utcTimeToLocal = (time: string): string => time;
 
 const getDefaultColorForSessionType = (sessionType: string): string => {
   const defaults: Record<string, string> = {
@@ -116,6 +104,9 @@ const ScheduleBuilder = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
+  const [timezone, setTimezone] = useState<string>(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
   const [originalEvents, setOriginalEvents] = useState<CalendarEvent[] | null>(null);
   const [scheduleDiff, setScheduleDiff] = useState<SlotDiff | null>(null);
   const [confirmedRemovals, setConfirmedRemovals] = useState<Set<string>>(new Set());
@@ -131,7 +122,7 @@ const ScheduleBuilder = () => {
           calendarEvents.push({
             id: timeSlot.id,
             dayOfWeek: daySchedule.day,
-            startTime: utcTimeToLocal(timeSlot.startTime), // Stored as UTC, display in browser local time
+            startTime: timeSlot.startTime,
             duration: timeSlot.duration,
             sessionType: timeSlot.sessionType,
             location: timeSlot.location,
@@ -165,6 +156,7 @@ const ScheduleBuilder = () => {
           const loadedEvents = convertDaySchedulesToEvents(daySchedules);
           setEvents(loadedEvents);
           setOriginalEvents(loadedEvents);
+          if (scheduleResult.timezone) setTimezone(scheduleResult.timezone);
         } else if (scheduleResult.status === 404) {
           // No schedule found, start with an empty state
           setEvents([]);
@@ -204,32 +196,28 @@ const ScheduleBuilder = () => {
     return new Date(today.setDate(diff));
   }, []);
 
-  // Convert day of the week (0-6) to a date in the reference week
+  // Convert day of the week (0-6) + wall-clock HH:mm → a Date in the reference week.
+  // FullCalendar runs in 'local' mode, so we use browser-local setHours.
+  // The stored timezone is saved to the DB for server-side session generation.
   const getDateForDayOfWeek = useCallback(
     (dayOfWeek: number, startTime: string) => {
       const referenceMonday = getReferenceDate();
-      // Convert day of week: 0=Sunday, 1=Monday, etc.
-      // Reference Monday is day 1, so we need to adjust
-      const dayDiff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 6 days after Monday
+      const dayDiff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const date = new Date(referenceMonday);
       date.setDate(date.getDate() + dayDiff);
-
-      // Add the time
       const [hours, minutes] = startTime.split(":").map(Number);
       date.setHours(hours, minutes, 0, 0);
-
       return date;
     },
     [getReferenceDate]
   );
 
-  // Convert date to day of week (0-6) and time string
+  // Convert a Date from FullCalendar (browser-local) back to wall-clock HH:mm.
   const getDayAndTimeFromDate = useCallback((date: Date) => {
-    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayOfWeek = date.getDay();
     const hours = date.getHours().toString().padStart(2, "0");
     const minutes = date.getMinutes().toString().padStart(2, "0");
-    const startTime = `${hours}:${minutes}`;
-    return {dayOfWeek, startTime};
+    return {dayOfWeek, startTime: `${hours}:${minutes}`};
   }, []);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -482,7 +470,7 @@ const ScheduleBuilder = () => {
     events.forEach((event) => {
       const timeSlot: TimeSlot = {
         id: event.id,
-        startTime: localTimeToUtc(event.startTime), // Convert browser local time → UTC before saving
+        startTime: event.startTime,
         duration: event.duration,
         sessionType: event.sessionType as string,
         location: event.location,
@@ -596,14 +584,14 @@ const ScheduleBuilder = () => {
     setIsConfirmDialogOpen(false);
 
     try {
-      const result = await createSchedule(daySchedules, newRegularSlotIds);
+      const result = await createSchedule(daySchedules, newRegularSlotIds, timezone);
 
       if (result?.success) {
         // Remove regular sessions that the user confirmed
         if (scheduleDiff) {
           for (const slot of scheduleDiff.removed) {
             if (slot.sessionType !== "regulars" || !confirmedRemovals.has(slot.id) || !slot.email) continue;
-            await removeRegularScheduleBySlot(slot.email, slot.dayOfWeek, localTimeToUtc(slot.startTime));
+            await removeRegularScheduleBySlot(slot.email, slot.dayOfWeek, slot.startTime);
           }
         }
         toast.success("Schedule saved successfully!");
@@ -683,16 +671,23 @@ const ScheduleBuilder = () => {
         </div>
 
         {/* Stats chips */}
-        {totalSlots > 0 && !isLoading && (
+        {!isLoading && (
           <div className="flex items-center gap-1.5 ml-2">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
-              {totalSlots} {totalSlots === 1 ? "session" : "sessions"}
-            </span>
-            {totalMinutes > 0 && (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50 tabular-nums">
-                {totalHoursDisplay}
-              </span>
+            {totalSlots > 0 && (
+              <>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
+                  {totalSlots} {totalSlots === 1 ? "session" : "sessions"}
+                </span>
+                {totalMinutes > 0 && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50 tabular-nums">
+                    {totalHoursDisplay}
+                  </span>
+                )}
+              </>
             )}
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700/50">
+              {timezone}
+            </span>
           </div>
         )}
 
