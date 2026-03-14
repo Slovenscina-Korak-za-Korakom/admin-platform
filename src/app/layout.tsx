@@ -6,7 +6,7 @@ import { Inter, Manrope } from "next/font/google";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Admin | Slovenščina Korak za Korakom",
+  title: "Admin | Slovenščina Korak za Korakom",
   description: "Admin panel for Slovenščina Korak za Korakom",
 };
 
