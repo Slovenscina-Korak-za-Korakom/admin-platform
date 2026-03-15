@@ -13,6 +13,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import {DateSelectArg, EventClickArg} from "@fullcalendar/core";
 import type {EventDropArg, EventResizeArg} from "@/components/calendar/types";
 import {Button} from "@/components/ui/button";
+import {getSessionColor} from "@/lib/session-colors";
 import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
 import {IconCheck, IconLoader2, IconAlertTriangle, IconCalendar} from "@tabler/icons-react";
 import {ScheduleSheet} from "./schedule-sheet";
@@ -62,15 +63,8 @@ export interface SlotDiff {
 // Kept for backwards-compat with any callers that still import it; returns the value unchanged.
 export const utcTimeToLocal = (time: string): string => time;
 
-const getDefaultColorForSessionType = (sessionType: string): string => {
-  const defaults: Record<string, string> = {
-    individual: "#3b82f6", // Blue for individual
-    group: "#10b981", // Green for group
-    regulars: "#8b5cf6", // Purple for regulars
-    test: "#f97316", // Orange for test sessions
-  };
-  return defaults[sessionType] || "#3b82f6"; // Default to blue
-};
+const getDefaultColorForSessionType = (sessionType: string): string =>
+  getSessionColor(sessionType);
 
 const ScheduleBuilder = () => {
   const calendarRef = useRef<FullCalendar>(null);
@@ -381,7 +375,7 @@ const ScheduleBuilder = () => {
       return;
     }
 
-    if (formData.sessionType === "regulars" && (!formData.email || !formData.studentClerkId)) {
+    if (formData.sessionType === "regular" && (!formData.email || !formData.studentClerkId)) {
       toast.error("Please select a student for regulars sessions");
       return;
     }
@@ -399,8 +393,8 @@ const ScheduleBuilder = () => {
               location: formData.location,
               description: formData.description,
               color: formData.color,
-              email: formData.sessionType === "regulars" ? formData.email : undefined,
-              studentClerkId: formData.sessionType === "regulars" ? formData.studentClerkId : undefined,
+              email: formData.sessionType === "regular" ? formData.email : undefined,
+              studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
             }
             : e
         )
@@ -417,8 +411,8 @@ const ScheduleBuilder = () => {
         location: formData.location,
         description: formData.description,
         color: formData.color,
-        email: formData.sessionType === "regulars" ? formData.email : undefined,
-        studentClerkId: formData.sessionType === "regulars" ? formData.studentClerkId : undefined,
+        email: formData.sessionType === "regular" ? formData.email : undefined,
+        studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
       };
       setEvents((prev) => [...prev, newEvent]);
       toast.success("Time slot added");
@@ -433,7 +427,7 @@ const ScheduleBuilder = () => {
     if (!editingEvent) return;
 
     const isEstablishedRegular =
-      editingEvent.sessionType === "regulars" &&
+      editingEvent.sessionType === "regular" &&
       (originalEvents?.some((e) => e.id === editingEvent.id) ?? false);
 
     if (isEstablishedRegular) {
@@ -565,7 +559,7 @@ const ScheduleBuilder = () => {
     setConfirmedRemovals(
       new Set(
         (diff?.removed ?? [])
-          .filter((e) => e.sessionType === "regulars")
+          .filter((e) => e.sessionType === "regular")
           .map((e) => e.id)
       )
     );
@@ -577,7 +571,7 @@ const ScheduleBuilder = () => {
 
     const newRegularSlotIds: string[] | undefined = originalEvents !== null
       ? (scheduleDiff?.added ?? [])
-          .filter((e) => e.sessionType === "regulars")
+          .filter((e) => e.sessionType === "regular")
           .map((e) => e.id)
       : undefined;
 
@@ -591,7 +585,7 @@ const ScheduleBuilder = () => {
         // Remove regular sessions that the user confirmed
         if (scheduleDiff) {
           for (const slot of scheduleDiff.removed) {
-            if (slot.sessionType !== "regulars" || !confirmedRemovals.has(slot.id) || !slot.email) continue;
+            if (slot.sessionType !== "regular" || !confirmedRemovals.has(slot.id) || !slot.email) continue;
             await removeRegularScheduleBySlot(slot.email, slot.dayOfWeek, slot.startTime);
           }
         }
@@ -613,7 +607,7 @@ const ScheduleBuilder = () => {
       const startDate = getDateForDayOfWeek(event.dayOfWeek, event.startTime);
       const endDate = new Date(startDate.getTime() + event.duration * 60000);
 
-      const title = event.sessionType === "regulars" && event.email
+      const title = event.sessionType === "regular" && event.email
         ? `${event.sessionType} (${event.email}) • ${event.location}`
         : `${event.sessionType} • ${event.location}`;
 
@@ -770,7 +764,7 @@ const ScheduleBuilder = () => {
             const location = eventInfo.event.extendedProps.location || "online";
             const email = eventInfo.event.extendedProps.email as string | undefined;
             const studentName = eventInfo.event.extendedProps.studentName as string | undefined;
-            const sessionLabel = sessionType === "regulars" && studentName
+            const sessionLabel = sessionType === "regular" && studentName
               ? studentName
               : sessionType.charAt(0).toUpperCase() + sessionType.slice(1);
             const locationLabel = location === "online" ? "Online" : "Classroom";

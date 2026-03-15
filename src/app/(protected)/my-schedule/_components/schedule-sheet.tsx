@@ -34,6 +34,7 @@ import {
 } from "@tabler/icons-react";
 import {calculateEndTime} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
 import {cn} from "@/lib/utils";
+import {SESSION_COLORS, getSessionColor} from "@/lib/session-colors";
 
 export interface Student {
   clerkId: string;
@@ -42,33 +43,40 @@ export interface Student {
   image?: string;
 }
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const SESSION_TYPE_CONFIG = {
   individual: {
     label: "Individual",
-    hex: "#3b82f6",
-    lightColor: "rgba(59, 130, 246, 0.07)",
-    borderColor: "rgba(59, 130, 246, 0.2)",
+    hex: SESSION_COLORS.individual,
+    lightColor: hexToRgba(SESSION_COLORS.individual, 0.07),
+    borderColor: hexToRgba(SESSION_COLORS.individual, 0.2),
     description: "One-on-one personalized sessions tailored to individual learning needs.",
   },
   group: {
     label: "Group",
-    hex: "#8b5cf6",
-    lightColor: "rgba(139, 92, 246, 0.07)",
-    borderColor: "rgba(139, 92, 246, 0.2)",
+    hex: SESSION_COLORS.group,
+    lightColor: hexToRgba(SESSION_COLORS.group, 0.07),
+    borderColor: hexToRgba(SESSION_COLORS.group, 0.2),
     description: "Interactive sessions with multiple participants for collaborative learning.",
   },
-  regulars: {
-    label: "Regulars",
-    hex: "#ec4899",
-    lightColor: "rgba(236, 72, 153, 0.07)",
-    borderColor: "rgba(236, 72, 153, 0.2)",
+  regular: {
+    label: "Regular",
+    hex: SESSION_COLORS.regular,
+    lightColor: hexToRgba(SESSION_COLORS.regular, 0.07),
+    borderColor: hexToRgba(SESSION_COLORS.regular, 0.2),
     description: "Ongoing sessions for committed students with consistent scheduling.",
   },
   test: {
     label: "Test",
-    hex: "#f97316",
-    lightColor: "rgba(249, 115, 22, 0.07)",
-    borderColor: "rgba(249, 115, 22, 0.2)",
+    hex: SESSION_COLORS.test,
+    lightColor: hexToRgba(SESSION_COLORS.test, 0.07),
+    borderColor: hexToRgba(SESSION_COLORS.test, 0.2),
     description: "A free introductory session for new students. Each student can only book one test session ever.",
   },
 };
@@ -78,15 +86,8 @@ const LOCATION_CONFIG = {
   classroom: {label: "Classroom", icon: IconBuilding},
 };
 
-const getDefaultColorForSessionType = (sessionType: string): string => {
-  const defaults: Record<string, string> = {
-    individual: "#3b82f6",
-    group: "#8b5cf6",
-    regulars: "#ec4899",
-    test: "#f97316",
-  };
-  return defaults[sessionType] || "#3b82f6";
-};
+const getDefaultColorForSessionType = (sessionType: string): string =>
+  getSessionColor(sessionType);
 
 const formatDuration = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
@@ -168,8 +169,8 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
       ...formData,
       sessionType: value,
       color: getDefaultColorForSessionType(value),
-      email: value === "regulars" ? formData.email : "",
-      studentClerkId: value === "regulars" ? formData.studentClerkId : "",
+      email: value === "regular" ? formData.email : "",
+      studentClerkId: value === "regular" ? formData.studentClerkId : "",
     });
   };
 
@@ -278,7 +279,7 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
           </div>
 
           {/* Student selection (regulars only) */}
-          {formData.sessionType === "regulars" && (
+          {formData.sessionType === "regular" && (
             <div className="px-5 py-4 border-b border-border/60">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Student <span className="text-destructive normal-case tracking-normal font-normal">*</span>

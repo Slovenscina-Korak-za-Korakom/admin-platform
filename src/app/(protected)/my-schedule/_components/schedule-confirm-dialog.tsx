@@ -15,6 +15,7 @@ import {
   IconPencil,
 } from "@tabler/icons-react";
 import {type CalendarEvent, type SlotDiff} from "@/app/(protected)/my-schedule/_components/schedule-builder";
+import {SESSION_COLORS} from "@/lib/session-colors";
 
 export const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
   const today = new Date();
@@ -45,30 +46,37 @@ interface DaySchedule {
   timeSlots: TimeSlot[];
 }
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const SESSION_TYPE_CONFIG = {
   individual: {
     label: "Individual",
-    color: "#3b82f6",
-    lightColor: "rgba(59, 130, 246, 0.06)",
-    borderColor: "rgba(59, 130, 246, 0.18)",
+    color: SESSION_COLORS.individual,
+    lightColor: hexToRgba(SESSION_COLORS.individual, 0.06),
+    borderColor: hexToRgba(SESSION_COLORS.individual, 0.18),
   },
   group: {
     label: "Group",
-    color: "#8b5cf6",
-    lightColor: "rgba(139, 92, 246, 0.06)",
-    borderColor: "rgba(139, 92, 246, 0.18)",
+    color: SESSION_COLORS.group,
+    lightColor: hexToRgba(SESSION_COLORS.group, 0.06),
+    borderColor: hexToRgba(SESSION_COLORS.group, 0.18),
   },
-  regulars: {
-    label: "Regulars",
-    color: "#ec4899",
-    lightColor: "rgba(236, 72, 153, 0.06)",
-    borderColor: "rgba(236, 72, 153, 0.18)",
+  regular: {
+    label: "Regular",
+    color: SESSION_COLORS.regular,
+    lightColor: hexToRgba(SESSION_COLORS.regular, 0.06),
+    borderColor: hexToRgba(SESSION_COLORS.regular, 0.18),
   },
   test: {
     label: "Test",
-    color: "#f97316",
-    lightColor: "rgba(249, 115, 22, 0.06)",
-    borderColor: "rgba(249, 115, 22, 0.18)",
+    color: SESSION_COLORS.test,
+    lightColor: hexToRgba(SESSION_COLORS.test, 0.06),
+    borderColor: hexToRgba(SESSION_COLORS.test, 0.18),
   },
 };
 
@@ -454,7 +462,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                 </div>
               ))}
               {diff.removed.map((e) => {
-                if (e.sessionType === "regulars") {
+                if (e.sessionType === "regular") {
                   const checked = confirmedRemovals?.has(e.id) ?? false;
                   return (
                     <div key={e.id} className="px-4 py-2.5 bg-amber-50/60 dark:bg-amber-950/10 border-l-2 border-amber-400 dark:border-amber-600">

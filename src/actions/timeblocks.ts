@@ -60,8 +60,8 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[], ti
       });
     }
 
-    // Process regulars invitations (only for genuinely new slots)
-    await processRegularsInvitations(userId, data, newRegularSlotIds, timezone);
+    // Process regular invitations (only for genuinely new slots)
+    await processRegularInvitations(userId, data, newRegularSlotIds, timezone);
 
     return {success: true, message: "Schedule saved successfully"};
   } catch (error) {
@@ -70,7 +70,7 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[], ti
   }
 };
 
-async function processRegularsInvitations(userId: string, daySchedules: any[], newSlotIds?: string[], timezone?: string) {
+async function processRegularInvitations(userId: string, daySchedules: any[], newSlotIds?: string[], timezone?: string) {
   // Get tutor info
   const tutors = await db
     .select({id: tutorsTable.id, name: tutorsTable.name})
@@ -88,7 +88,7 @@ async function processRegularsInvitations(userId: string, daySchedules: any[], n
     const timeSlots = daySchedule.timeSlots as any[];
 
     for (const slot of timeSlots) {
-      if (slot.sessionType !== "regulars" || !slot.email || !slot.studentClerkId) continue;
+      if (slot.sessionType !== "regular" || !slot.email || !slot.studentClerkId) continue;
 
       // If the caller supplied a specific list of new slot IDs, skip any slot
       // not in that list — this prevents re-inviting students on every save.
@@ -336,7 +336,7 @@ export const getAcceptedRegulars = async () => {
 
     return {data: invitations, status: 200};
   } catch (error) {
-    console.error("Error fetching accepted regulars:", error);
+    console.error("Error fetching accepted regular sessions:", error);
     return {data: [], status: 500};
   }
 };
