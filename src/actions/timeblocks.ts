@@ -155,6 +155,50 @@ async function processRegularsInvitations(userId: string, daySchedules: any[], n
   }
 }
 
+export const cancelSession = async (sessionId: number) => {
+  const {userId} = await auth();
+  if (!userId) return {message: "Unauthorized", status: 401};
+
+  try {
+    const session = await db
+      .select({
+        id: timeblocksTable.id,
+        sessionType: timeblocksTable.sessionType,
+        studentId: timeblocksTable.studentId,
+      })
+      .from(timeblocksTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
+      .where(and(eq(timeblocksTable.id, sessionId), eq(tutorsTable.clerkId, userId)))
+      .limit(1);
+
+    if (session.length === 0) return {message: "Session not found", status: 404};
+
+    await db
+      .update(timeblocksTable)
+      .set({status: "cancelled", updatedAt: new Date()})
+      .where(eq(timeblocksTable.id, sessionId));
+
+    // If a booked test session is cancelled, clear the student's one-time-booking metadata
+    if (session[0].sessionType === "test" && session[0].studentId) {
+      try {
+        const client = await clerkClient();
+        await client.users.updateUserMetadata(session[0].studentId, {
+          privateMetadata: { testSession: null },
+        });
+
+      } catch (e) {
+        console.error("Failed to clear student test session metadata:", e);
+        return {message: "Failed to clear student test session metadata!", status: 500};
+      }
+    }
+
+    return {message: "Session cancelled", status: 200};
+  } catch (error) {
+    console.error(error);
+    return {message: "Failed to cancel session", status: 500};
+  }
+};
+
 export const getStudentInfo = async (studentId: string) => {
   const {userId} = await auth();
   const client = await clerkClient();

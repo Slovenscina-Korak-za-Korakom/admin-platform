@@ -64,6 +64,12 @@ const SESSION_TYPE_CONFIG = {
     lightColor: "rgba(236, 72, 153, 0.06)",
     borderColor: "rgba(236, 72, 153, 0.18)",
   },
+  test: {
+    label: "Test",
+    color: "#f97316",
+    lightColor: "rgba(249, 115, 22, 0.06)",
+    borderColor: "rgba(249, 115, 22, 0.18)",
+  },
 };
 
 const LOCATION_CONFIG = {
@@ -151,7 +157,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
         className={`
           ${diff ? "sm:max-w-[980px]" : "sm:max-w-[780px]"} p-0 gap-0 border-0 shadow-2xl rounded-2xl overflow-hidden
           flex flex-col sm:flex-row
-          max-h-[88vh] sm:h-[620px]
+          max-h-[92vh] sm:h-[700px]
           [&>button:last-child]:hidden
         `}
       >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useState} from "react";
+import React, {useState, useTransition} from "react";
 import {Sheet, SheetContent, SheetTitle, SheetDescription} from "@/components/ui/sheet";
 import {
   IconCalendar,
@@ -16,6 +16,8 @@ import {SessionData, StudentInfo} from "@/components/calendar/types";
 import {CancelSessionDialog} from "./cancel-session-dialog";
 import {RemoveScheduleDialog} from "./remove-schedule-dialog";
 import Image from "next/image";
+import {cancelSession} from "@/actions/timeblocks";
+import {useRouter} from "next/navigation";
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -23,6 +25,7 @@ const SESSION_TYPE_CONFIG: Record<string, {label: string; hex: string; lightColo
   individual: {label: "Individual", hex: "#3b82f6", lightColor: "rgba(59,130,246,0.08)", borderColor: "rgba(59,130,246,0.22)"},
   group:      {label: "Group",      hex: "#8b5cf6", lightColor: "rgba(139,92,246,0.08)",  borderColor: "rgba(139,92,246,0.22)"},
   regular:    {label: "Regular",    hex: "#ec4899", lightColor: "rgba(236,72,153,0.08)",  borderColor: "rgba(236,72,153,0.22)"},
+  test:       {label: "Test",       hex: "#F97315", lightColor: "rgba(236,72,153,0.08)",  borderColor: "rgba(236,72,153,0.22)"},
 };
 
 const STATUS_CONFIG: Record<string, {label: string; bg: string; text: string}> = {
@@ -46,14 +49,15 @@ const fmtDuration = (min: number) => {
 
 type EventSheetProps = {
   isEventSheetOpen: boolean;
-  setIsEventSheetOpen: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void;
   selectedSession: (SessionData & {studentInfo: StudentInfo | null}) | null;
 };
 
-export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSession: event}: EventSheetProps) => {
+export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: event}: EventSheetProps) => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const student = event?.studentInfo ?? null;
   const isRegularsSession = event?.sessionType === "regular";
   const isFutureSession = event ? new Date(event.startTime) > new Date() : false;
@@ -72,9 +76,23 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
 
   const showFooter = (isRegularsSession && isFutureSession) || (event?.status === "booked" && isFutureSession && !isRegularsSession);
 
+  const onCancelSession = () => {
+    if (!event?.id) return;
+    startTransition(async () => {
+      const result = await cancelSession(event.id);
+
+      if (result.status === 200) {
+        router.refresh();
+        onOpenChange(false)
+      } else {
+        console.error("Failed to remove schedule:", result.message);
+      }
+    });
+  }
+
   return (
     <>
-      <Sheet open={isEventSheetOpen} onOpenChange={setIsEventSheetOpen}>
+      <Sheet open={isEventSheetOpen} onOpenChange={onOpenChange}>
         <SheetTitle className="sr-only">Session Details</SheetTitle>
         <SheetDescription className="sr-only">View session information</SheetDescription>
         <SheetContent className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
@@ -99,7 +117,7 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
                     : initials}
                 </div>
                 <button
-                  onClick={() => setIsEventSheetOpen(false)}
+                  onClick={() => onOpenChange(false)}
                   className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <IconX className="h-4 w-4"/>
@@ -221,7 +239,7 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
                     <button
                       type="button"
                       onClick={() => setCancelDialogOpen(true)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
                     >
                       <IconX className="h-4 w-4"/>
                       Cancel Session
@@ -229,7 +247,7 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
                     <button
                       type="button"
                       onClick={() => setRemoveDialogOpen(true)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
+                      className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
                     >
                       <IconTrash className="h-4 w-4"/>
                       Remove Schedule
@@ -238,10 +256,12 @@ export const EventSheet = ({isEventSheetOpen, setIsEventSheetOpen, selectedSessi
                 ) : (
                   <button
                     type="button"
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
+                    disabled={pending}
+                    className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => onCancelSession()}
                   >
                     <IconX className="h-4 w-4"/>
-                    Cancel Session
+                    {pending ? "Cancelling..." : "Cancel Session"}
                   </button>
                 )}
               </div>

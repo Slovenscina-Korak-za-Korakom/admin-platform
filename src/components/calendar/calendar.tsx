@@ -475,7 +475,7 @@ export default function Calendar({data}: { data: SessionData[] }) {
 
       <EventSheet
         isEventSheetOpen={isEventSheetOpen}
-        setIsEventSheetOpen={setIsEventSheetOpen}
+        onOpenChange={setIsEventSheetOpen}
         selectedSession={selectedEvent}
       />
     </div>

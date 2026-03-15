@@ -64,6 +64,13 @@ const SESSION_TYPE_CONFIG = {
     borderColor: "rgba(236, 72, 153, 0.2)",
     description: "Ongoing sessions for committed students with consistent scheduling.",
   },
+  test: {
+    label: "Test",
+    hex: "#f97316",
+    lightColor: "rgba(249, 115, 22, 0.07)",
+    borderColor: "rgba(249, 115, 22, 0.2)",
+    description: "A free introductory session for new students. Each student can only book one test session ever.",
+  },
 };
 
 const LOCATION_CONFIG = {
@@ -76,6 +83,7 @@ const getDefaultColorForSessionType = (sessionType: string): string => {
     individual: "#3b82f6",
     group: "#8b5cf6",
     regulars: "#ec4899",
+    test: "#f97316",
   };
   return defaults[sessionType] || "#3b82f6";
 };
@@ -234,7 +242,7 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
               Session Type
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {(Object.entries(SESSION_TYPE_CONFIG) as [string, typeof SESSION_TYPE_CONFIG.individual][]).map(([key, cfg]) => {
                 const active = formData.sessionType === key;
                 return (

@@ -65,8 +65,9 @@ export const utcTimeToLocal = (time: string): string => time;
 const getDefaultColorForSessionType = (sessionType: string): string => {
   const defaults: Record<string, string> = {
     individual: "#3b82f6", // Blue for individual
-    group: "#10b981", // Green for a group
+    group: "#10b981", // Green for group
     regulars: "#8b5cf6", // Purple for regulars
+    test: "#f97316", // Orange for test sessions
   };
   return defaults[sessionType] || "#3b82f6"; // Default to blue
 };
