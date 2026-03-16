@@ -10,6 +10,7 @@ import {resend} from "@/lib/resend";
 import {InvitationEmail} from "@/emails/invitation-email";
 import {SessionCancelledEmail} from "@/emails/session-cancelled-email";
 import {ScheduleRemovedEmail} from "@/emails/schedule-removed-email";
+import {OneTimeSessionEmail} from "@/emails/one-time-session-email";
 
 function getBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -546,5 +547,129 @@ export const removeRegularSchedule = async (invitationId: number) => {
   } catch (error) {
     console.error("Error removing schedule:", error);
     return {message: "Failed to remove schedule", status: 500};
+  }
+};
+
+export const createOneTimeSession = async (data: {
+  date: string;          // "YYYY-MM-DD"
+  startTime: string;     // "HH:mm"
+  duration: number;      // minutes
+  sessionType: "individual" | "group" | "test";
+  location: "online" | "classroom";
+  studentClerkId: string;
+}) => {
+  const {userId} = await auth();
+  if (!userId) return {message: "Unauthorized", status: 401};
+
+  try {
+    // 1. Get tutor record
+    const tutors = await db
+      .select({id: tutorsTable.id, name: tutorsTable.name, email: tutorsTable.email})
+      .from(tutorsTable)
+      .where(eq(tutorsTable.clerkId, userId))
+      .limit(1);
+
+    if (tutors.length === 0) return {message: "Tutor not found", status: 404};
+    const tutor = tutors[0];
+
+    // 2. Get student info from Clerk
+    const client = await clerkClient();
+    const studentUser = await client.users.getUser(data.studentClerkId);
+    const studentEmail = studentUser.emailAddresses[0]?.emailAddress ?? "";
+    const studentName =
+      studentUser.fullName ||
+      studentUser.firstName ||
+      studentEmail ||
+      "Student";
+
+    // 3. Build startTime Date
+    const [year, month, day] = data.date.split("-").map(Number);
+    const [h, m] = data.startTime.split(":").map(Number);
+    const startDateTime = new Date(year, month - 1, day, h, m, 0, 0);
+
+    // 4. Compute end time string for email
+    const totalMinutes = h * 60 + m + data.duration;
+    const endTime =
+      `${Math.floor(totalMinutes / 60) % 24}`.padStart(2, "0") +
+      ":" +
+      `${totalMinutes % 60}`.padStart(2, "0");
+
+    // 5. Format date for email
+    const formattedDate = startDateTime.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    // 6. Insert timeblock
+    const [inserted] = await db
+      .insert(timeblocksTable)
+      .values({
+        tutorId: tutor.id,
+        startTime: startDateTime,
+        duration: data.duration,
+        status: "booked",
+        sessionType: data.sessionType,
+        location: data.location,
+        studentId: data.studentClerkId,
+      })
+      .returning({id: timeblocksTable.id});
+
+    // 7. If test session, set student Clerk metadata
+    if (data.sessionType === "test") {
+      try {
+        await client.users.updateUserMetadata(data.studentClerkId, {
+          privateMetadata: {
+            testSession: {
+              status: "booked",
+              sessionId: inserted.id,
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Failed to update student test session metadata:", e);
+      }
+    }
+
+    const emailProps = {
+      tutorName: tutor.name,
+      studentName,
+      date: formattedDate,
+      startTime: data.startTime,
+      endTime,
+      duration: data.duration,
+      sessionType: data.sessionType,
+      location: data.location,
+    } as const;
+
+    // 8. Send confirmation email to student
+    try {
+      await resend.emails.send({
+        from: "Slovenščina Korak za Korakom <noreply@slovenscinakzk.com>",
+        to: studentEmail,
+        subject: `Session with ${tutor.name} confirmed for ${formattedDate}`,
+        react: OneTimeSessionEmail({...emailProps, recipientType: "student"}),
+      });
+    } catch (emailError) {
+      console.error("Failed to send student confirmation email:", emailError);
+    }
+
+    // 9. Send notification email to tutor
+    try {
+      await resend.emails.send({
+        from: "Slovenščina Korak za Korakom <noreply@slovenscinakzk.com>",
+        to: tutor.email,
+        subject: `Session with ${studentName} booked for ${formattedDate}`,
+        react: OneTimeSessionEmail({...emailProps, recipientType: "tutor"}),
+      });
+    } catch (emailError) {
+      console.error("Failed to send tutor notification email:", emailError);
+    }
+
+    return {message: "Session booked successfully", status: 200, data: {id: inserted.id}};
+  } catch (error) {
+    console.error("Failed to create one-time session:", error);
+    return {message: "Failed to create session", status: 500};
   }
 };

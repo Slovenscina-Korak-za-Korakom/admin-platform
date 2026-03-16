@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
-import { DateSelectArg, EventClickArg as FCEventClickArg } from "@fullcalendar/core";
+import { DateSelectArg } from "@fullcalendar/core";
 import { CalendarControls } from "@/components/calendar/calendar-controls";
 import { SessionData } from "@/components/calendar/types";
 import "@/components/calendar/calendar-styles.css";
@@ -35,7 +36,6 @@ import {
   IconCalendar,
   IconCalendarPlus,
   IconCheck,
-  IconTrash,
   IconClock,
   IconVideo,
   IconBuilding,
@@ -44,33 +44,19 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { getStudents } from "@/actions/timeblocks";
+import { getStudents, createOneTimeSession } from "@/actions/timeblocks";
 import type { Student } from "./schedule-sheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface NewSession {
-  id: string;
-  date: string; // "YYYY-MM-DD"
-  startTime: string; // "HH:mm"
-  duration: number; // minutes
-  sessionType: "individual" | "group";
-  location: "online" | "classroom";
-  studentClerkId?: string;
-  studentEmail?: string;
-  notes?: string;
-  color: string;
-}
 
 interface SessionFormData {
   date: string;
   startTime: string;
   duration: number;
-  sessionType: "individual" | "group";
+  sessionType: "individual" | "group" | "test";
   location: "online" | "classroom";
   studentClerkId: string;
   studentEmail: string;
-  notes: string;
   color: string;
 }
 
@@ -79,6 +65,7 @@ interface SessionFormData {
 const SESSION_COLORS = {
   individual: "#3b82f6",
   group: "#8b5cf6",
+  test: "#f97316",
 };
 
 const SESSION_TYPE_CONFIG = {
@@ -93,6 +80,12 @@ const SESSION_TYPE_CONFIG = {
     hex: "#8b5cf6",
     lightColor: "rgba(139, 92, 246, 0.07)",
     description: "Interactive sessions with multiple participants for collaborative learning.",
+  },
+  test: {
+    label: "Test",
+    hex: "#f97316",
+    lightColor: "rgba(249, 115, 22, 0.07)",
+    description: "A one-time trial session for new students to experience the teaching style.",
   },
 };
 
@@ -137,6 +130,8 @@ interface SessionSchedulerProps {
 
 const SessionScheduler = ({ data }: SessionSchedulerProps) => {
   const calendarRef = useRef<FullCalendar>(null);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   // Calendar UI state
   const [calendarTitle, setCalendarTitle] = useState(
@@ -146,14 +141,13 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
   const [showWeekends, setShowWeekends] = useState(true);
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
 
-  // Session state
-  const [newSessions, setNewSessions] = useState<NewSession[]>([]);
+  // Student state
   const [students, setStudents] = useState<Student[]>([]);
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [studentSelectOpen, setStudentSelectOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<SessionFormData>({
     date: "",
     startTime: "09:00",
@@ -162,7 +156,6 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
     location: "online",
     studentClerkId: "",
     studentEmail: "",
-    notes: "",
     color: SESSION_COLORS.individual,
   });
 
@@ -234,7 +227,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
       }
     }
 
-    setEditingSessionId(null);
+    setError(null);
     setFormData({
       date: dateStr,
       startTime,
@@ -243,143 +236,75 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
       location: "online",
       studentClerkId: "",
       studentEmail: "",
-      notes: "",
       color: SESSION_COLORS.individual,
     });
     setIsSheetOpen(true);
     calendarRef.current?.getApi().unselect();
   }, []);
 
-  // ── Event click ────────────────────────────────────────────────────────
-
-  const handleEventClick = useCallback(
-    (clickInfo: FCEventClickArg) => {
-      const eventId = clickInfo.event.id;
-      if (!eventId.startsWith("new-")) return; // existing sessions are read-only
-
-      const session = newSessions.find((s) => `new-${s.id}` === eventId);
-      if (!session) return;
-
-      setEditingSessionId(session.id);
-      setFormData({
-        date: session.date,
-        startTime: session.startTime,
-        duration: session.duration,
-        sessionType: session.sessionType,
-        location: session.location,
-        studentClerkId: session.studentClerkId ?? "",
-        studentEmail: session.studentEmail ?? "",
-        notes: session.notes ?? "",
-        color: session.color,
-      });
-      setIsSheetOpen(true);
-    },
-    [newSessions]
-  );
-
-  // ── Save / delete ──────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────
 
   const handleSave = useCallback(() => {
-    if (editingSessionId) {
-      setNewSessions((prev) =>
-        prev.map((s) =>
-          s.id === editingSessionId
-            ? {
-                ...s,
-                date: formData.date,
-                startTime: formData.startTime,
-                duration: formData.duration,
-                sessionType: formData.sessionType,
-                location: formData.location,
-                studentClerkId: formData.studentClerkId || undefined,
-                studentEmail: formData.studentEmail || undefined,
-                notes: formData.notes || undefined,
-                color: formData.color,
-              }
-            : s
-        )
-      );
-    } else {
-      setNewSessions((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          date: formData.date,
-          startTime: formData.startTime,
-          duration: formData.duration,
-          sessionType: formData.sessionType,
-          location: formData.location,
-          studentClerkId: formData.studentClerkId || undefined,
-          studentEmail: formData.studentEmail || undefined,
-          notes: formData.notes || undefined,
-          color: formData.color,
-        },
-      ]);
-    }
-    setIsSheetOpen(false);
-    setEditingSessionId(null);
-  }, [editingSessionId, formData]);
+    if (!formData.studentClerkId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await createOneTimeSession({
+        date: formData.date,
+        startTime: formData.startTime,
+        duration: formData.duration,
+        sessionType: formData.sessionType,
+        location: formData.location,
+        studentClerkId: formData.studentClerkId,
+      });
 
-  const handleDelete = useCallback(() => {
-    if (!editingSessionId) return;
-    setNewSessions((prev) => prev.filter((s) => s.id !== editingSessionId));
-    setIsSheetOpen(false);
-    setEditingSessionId(null);
-  }, [editingSessionId]);
+      if (result.status === 200) {
+        setIsSheetOpen(false);
+        router.refresh();
+      } else {
+        setError(result.message ?? "Failed to save session. Please try again.");
+      }
+    });
+  }, [formData, router, startTransition]);
 
   const closeSheet = useCallback(() => {
+    if (isPending) return;
     setIsSheetOpen(false);
-    setEditingSessionId(null);
-  }, []);
+    setError(null);
+  }, [isPending]);
 
   // ── Calendar events ────────────────────────────────────────────────────
 
   const calendarEvents = useMemo(() => {
-    const existingEvents = data.map((session) => ({
-      id: `existing-${session.id}`,
-      title: session.sessionType === "group" ? "Group" : "Individual",
-      start: session.startTime,
-      end: new Date(new Date(session.startTime).getTime() + session.duration * 60000),
-      backgroundColor: session.sessionType === "group" ? SESSION_COLORS.group : SESSION_COLORS.individual,
-      borderColor: session.sessionType === "group" ? SESSION_COLORS.group : SESSION_COLORS.individual,
-      textColor: "#ffffff",
-      extendedProps: {
-        isExisting: true,
-        sessionType: session.sessionType,
-        location: session.location,
-      },
-    }));
+    return data.map((session) => {
+      const color =
+        session.sessionType === "group"
+          ? SESSION_COLORS.group
+          : session.sessionType === "test"
+          ? SESSION_COLORS.test
+          : SESSION_COLORS.individual;
 
-    const newEvents = newSessions.map((session) => {
-      const [year, month, day] = session.date.split("-").map(Number);
-      const [h, m] = session.startTime.split(":").map(Number);
-      const start = new Date(year, month - 1, day, h, m);
-      const end = new Date(start.getTime() + session.duration * 60000);
-      const student = students.find((s) => s.clerkId === session.studentClerkId);
-      const title = student
-        ? student.name
-        : session.sessionType === "group"
-        ? "Group"
-        : "Individual";
+      const title =
+        session.sessionType === "group"
+          ? "Group"
+          : session.sessionType === "test"
+          ? "Test"
+          : "Individual";
 
       return {
-        id: `new-${session.id}`,
+        id: `existing-${session.id}`,
         title,
-        start,
-        end,
-        backgroundColor: session.color,
-        borderColor: session.color,
+        start: session.startTime,
+        end: new Date(new Date(session.startTime).getTime() + session.duration * 60000),
+        backgroundColor: color,
+        borderColor: color,
         textColor: "#ffffff",
         extendedProps: {
-          isExisting: false,
           sessionType: session.sessionType,
           location: session.location,
         },
       };
     });
-
-    return [...existingEvents, ...newEvents];
-  }, [data, newSessions, students]);
+  }, [data]);
 
   // ── Derived form values ────────────────────────────────────────────────
 
@@ -406,14 +331,6 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
             <p className="text-xs text-muted-foreground leading-tight">Schedule a one-time session</p>
           </div>
         </div>
-
-        {newSessions.length > 0 && (
-          <span className="ml-2 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
-            {newSessions.length} unsaved {newSessions.length === 1 ? "session" : "sessions"}
-          </span>
-        )}
-
-        {/* TODO: connect submit button when backend is ready */}
       </div>
 
       {/* ── Calendar controls ── */}
@@ -478,7 +395,6 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
           selectable={true}
           selectMirror={true}
           select={handleDateSelect}
-          eventClick={handleEventClick}
           editable={false}
           scrollTime="08:00:00"
           slotDuration="00:15:00"
@@ -500,14 +416,12 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
             }
             return dayNumber;
           }}
-          // Visually dim past days in month view
           dayCellClassNames={(arg: any) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             return arg.date < today ? ["opacity-40"] : [];
           }}
           eventContent={(eventInfo: any) => {
-            const isExisting = eventInfo.event.extendedProps.isExisting as boolean;
             const color = eventInfo.event.backgroundColor as string;
             const location = eventInfo.event.extendedProps.location as string;
             const locationLabel = location === "online" ? "Online" : "Classroom";
@@ -522,8 +436,8 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                   overflow: "hidden",
                   position: "relative",
                   boxSizing: "border-box",
-                  opacity: isExisting ? 0.6 : 1,
-                  cursor: isExisting ? "default" : "pointer",
+                  opacity: 0.6,
+                  cursor: "default",
                 }}
               >
                 {/* Top shine */}
@@ -542,7 +456,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                     position: "absolute",
                     left: 0, top: 0, bottom: 0,
                     width: "3px",
-                    backgroundColor: isExisting ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
+                    backgroundColor: "rgba(255,255,255,0.2)",
                   }}
                 />
                 {/* Text */}
@@ -580,7 +494,6 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                     }}
                   >
                     {locationLabel} · {eventInfo.timeText}
-                    {isExisting && " · existing"}
                   </div>
                 </div>
               </div>
@@ -591,7 +504,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
 
       {/* ── Session sheet ── */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => { if (!open) closeSheet(); }}>
-        <SheetTitle className="sr-only">{editingSessionId ? "Edit Session" : "New Session"}</SheetTitle>
+        <SheetTitle className="sr-only">New Session</SheetTitle>
         <SheetDescription className="sr-only">Configure session details</SheetDescription>
         <SheetContent className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
 
@@ -610,14 +523,15 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                 </div>
                 <button
                   onClick={closeSheet}
-                  className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  disabled={isPending}
+                  className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
                 >
                   <IconX className="h-4 w-4" />
                 </button>
               </div>
 
               <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
-                {editingSessionId ? "Edit" : "New"}
+                New
               </p>
               <h2 className="text-white text-2xl font-bold leading-tight mb-4">Session</h2>
 
@@ -706,7 +620,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Session Type
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {(Object.entries(SESSION_TYPE_CONFIG) as [keyof typeof SESSION_TYPE_CONFIG, typeof SESSION_TYPE_CONFIG.individual][]).map(
                   ([key, cfg]) => {
                     const active = formData.sessionType === key;
@@ -745,13 +659,10 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
               </p>
             </div>
 
-            {/* Student */}
+            {/* Student — required */}
             <div className="px-5 py-4 border-b border-border/60">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                Student{" "}
-                <span className="normal-case tracking-normal font-normal text-muted-foreground/60">
-                  (optional)
-                </span>
+                Student
               </p>
               <Popover open={studentSelectOpen} onOpenChange={setStudentSelectOpen}>
                 <PopoverTrigger asChild>
@@ -834,7 +745,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
             </div>
 
             {/* Location */}
-            <div className="px-5 py-4 border-b border-border/60">
+            <div className="px-5 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Location
               </p>
@@ -874,53 +785,27 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                 )}
               </div>
             </div>
-
-            {/* Notes */}
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                Notes{" "}
-                <span className="normal-case tracking-normal font-normal text-muted-foreground/60">
-                  (optional)
-                </span>
-              </p>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Add any notes or special instructions…"
-                rows={4}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
-              />
-            </div>
           </div>
 
           {/* Footer */}
           <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-muted/20">
-            <div className="flex items-center gap-2">
-              {editingSessionId && (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
-                >
-                  <IconTrash className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-              )}
-              <div className="flex gap-2 ml-auto">
-                <Button variant="outline" type="button" className="rounded-lg" onClick={closeSheet}>
-                  Cancel
-                </Button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!formData.date || !formData.startTime}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg, #0891b2, #2563eb)" }}
-                >
-                  <IconCheck className="h-4 w-4" />
-                  Save Session
-                </button>
-              </div>
+            {error && (
+              <p className="text-xs text-destructive mb-3">{error}</p>
+            )}
+            <div className="flex items-center gap-2 justify-end">
+              <Button variant="outline" type="button" className="rounded-lg" onClick={closeSheet} disabled={isPending}>
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!formData.date || !formData.startTime || !formData.studentClerkId || isPending}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "linear-gradient(135deg, #0891b2, #2563eb)" }}
+              >
+                <IconCheck className="h-4 w-4" />
+                {isPending ? "Saving…" : "Save Session"}
+              </button>
             </div>
           </div>
 
