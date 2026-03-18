@@ -33,6 +33,7 @@ interface TimeSlot {
   color?: string;
   email?: string;
   studentClerkId?: string;
+  pricePerSession?: number;
 }
 
 interface DaySchedule {
@@ -51,6 +52,7 @@ export interface CalendarEvent {
   color: string;
   email?: string;
   studentClerkId?: string;
+  pricePerSession?: number;
 }
 
 export interface SlotDiff {
@@ -58,10 +60,6 @@ export interface SlotDiff {
   removed: CalendarEvent[];
   modified: {before: CalendarEvent; after: CalendarEvent}[];
 }
-
-// Recurring schedule times are stored as local wall-clock "HH:mm" (no UTC conversion).
-// Kept for backwards-compat with any callers that still import it; returns the value unchanged.
-export const utcTimeToLocal = (time: string): string => time;
 
 const getDefaultColorForSessionType = (sessionType: string): string =>
   getSessionColor(sessionType);
@@ -86,6 +84,7 @@ const ScheduleBuilder = () => {
     color: string;
     email: string;
     studentClerkId: string;
+    pricePerSession: string;
   }>({
     startTime: "09:00",
     duration: 60,
@@ -95,6 +94,7 @@ const ScheduleBuilder = () => {
     color: "#3b82f6",
     email: "",
     studentClerkId: "",
+    pricePerSession: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,6 +127,7 @@ const ScheduleBuilder = () => {
               getDefaultColorForSessionType(timeSlot.sessionType),
             email: timeSlot.email,
             studentClerkId: timeSlot.studentClerkId,
+            pricePerSession: timeSlot.pricePerSession,
           });
         });
       });
@@ -242,6 +243,7 @@ const ScheduleBuilder = () => {
         color: existingEvent.color,
         email: existingEvent.email || "",
         studentClerkId: existingEvent.studentClerkId || "",
+        pricePerSession: existingEvent.pricePerSession?.toString() ?? "",
       });
       setSelectedSlot({
         dayOfWeek,
@@ -261,6 +263,7 @@ const ScheduleBuilder = () => {
         color: defaultColor,
         email: "",
         studentClerkId: "",
+        pricePerSession: "",
       });
       setSelectedSlot({
         dayOfWeek,
@@ -291,6 +294,7 @@ const ScheduleBuilder = () => {
         color: event.color,
         email: event.email || "",
         studentClerkId: event.studentClerkId || "",
+        pricePerSession: event.pricePerSession?.toString() ?? "",
       });
       setSelectedSlot({
         dayOfWeek: event.dayOfWeek,
@@ -395,6 +399,7 @@ const ScheduleBuilder = () => {
               color: formData.color,
               email: formData.sessionType === "regular" ? formData.email : undefined,
               studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
+              pricePerSession: formData.sessionType === "regular" && formData.pricePerSession ? parseFloat(formData.pricePerSession) : undefined,
             }
             : e
         )
@@ -413,6 +418,7 @@ const ScheduleBuilder = () => {
         color: formData.color,
         email: formData.sessionType === "regular" ? formData.email : undefined,
         studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
+        pricePerSession: formData.sessionType === "regular" && formData.pricePerSession ? parseFloat(formData.pricePerSession) : undefined,
       };
       setEvents((prev) => [...prev, newEvent]);
       toast.success("Time slot added");
@@ -473,6 +479,7 @@ const ScheduleBuilder = () => {
         color: event.color,
         email: event.email,
         studentClerkId: event.studentClerkId,
+        pricePerSession: event.pricePerSession,
       };
 
       if (!schedulesMap.has(event.dayOfWeek)) {
@@ -513,7 +520,8 @@ const ScheduleBuilder = () => {
         original.location !== current.location ||
         (original.description ?? "") !== (current.description ?? "") ||
         (original.email ?? "") !== (current.email ?? "") ||
-        (original.studentClerkId ?? "") !== (current.studentClerkId ?? "")
+        (original.studentClerkId ?? "") !== (current.studentClerkId ?? "") ||
+        (original.pricePerSession ?? 0) !== (current.pricePerSession ?? 0)
       ) {
         modified.push({before: original, after: current});
       }
@@ -529,7 +537,8 @@ const ScheduleBuilder = () => {
       a.location === b.location &&
       (a.email ?? "") === (b.email ?? "") &&
       (a.studentClerkId ?? "") === (b.studentClerkId ?? "") &&
-      (a.description ?? "") === (b.description ?? "");
+      (a.description ?? "") === (b.description ?? "") &&
+      (a.pricePerSession ?? 0) === (b.pricePerSession ?? 0);
 
     const remainingRemoved = [...rawRemoved];
     const added = rawAdded.filter((addedSlot) => {

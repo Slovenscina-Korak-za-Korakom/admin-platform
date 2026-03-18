@@ -128,6 +128,7 @@ interface ScheduleSheetProps {
     color: string;
     email: string;
     studentClerkId: string;
+    pricePerSession: string;
   };
   onFormDataChange: (data: {
     startTime: string;
@@ -138,6 +139,7 @@ interface ScheduleSheetProps {
     color: string;
     email: string;
     studentClerkId: string;
+    pricePerSession: string;
   }) => void;
   onSave: () => void;
   onDelete: () => void;
@@ -171,6 +173,7 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
       color: getDefaultColorForSessionType(value),
       email: value === "regular" ? formData.email : "",
       studentClerkId: value === "regular" ? formData.studentClerkId : "",
+      pricePerSession: value === "regular" ? formData.pricePerSession : "",
     });
   };
 
@@ -351,6 +354,25 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
               <p className="text-xs text-muted-foreground mt-2">
                 An invitation email will be sent to this student when saved.
               </p>
+
+              {/* Price per session */}
+              <div className="mt-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                  Price per session <span className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span>
+                </p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">€</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.pricePerSession}
+                    onChange={(e) => onFormDataChange({...formData, pricePerSession: e.target.value})}
+                    placeholder="0.00"
+                    className="w-full rounded-xl border border-border bg-background pl-8 pr-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

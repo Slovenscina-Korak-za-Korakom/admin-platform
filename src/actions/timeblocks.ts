@@ -91,14 +91,11 @@ async function processRegularInvitations(userId: string, daySchedules: any[], ne
     for (const slot of timeSlots) {
       if (slot.sessionType !== "regular" || !slot.email || !slot.studentClerkId) continue;
 
-      // If the caller supplied a specific list of new slot IDs, skip any slot
-      // not in that list — this prevents re-inviting students on every save.
-      if (newSlotIds !== undefined && !newSlotIds.includes(slot.id)) continue;
-
       const studentEmail = slot.email as string;
       const studentClerkId = slot.studentClerkId as string;
+      const isNewSlot = newSlotIds === undefined || newSlotIds.includes(slot.id);
 
-      // Safety-net: check if an invitation already exists for this tutor + email + day + time
+      // Check if an invitation already exists for this tutor + email + day + time
       const existing = await db
         .select({id: regularInvitationsTable.id})
         .from(regularInvitationsTable)
@@ -112,7 +109,20 @@ async function processRegularInvitations(userId: string, daySchedules: any[], ne
         )
         .limit(1);
 
-      if (existing.length > 0) continue;
+      if (existing.length > 0) {
+        // Always sync pricePerSession on existing invitations (handles edits)
+        await db
+          .update(regularInvitationsTable)
+          .set({
+            pricePerSession: slot.pricePerSession != null ? String(slot.pricePerSession) : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(regularInvitationsTable.id, existing[0].id));
+        continue; // Don't resend the invitation email
+      }
+
+      // Only create a new invitation + send email for genuinely new slots
+      if (!isNewSlot) continue;
 
       const token = randomUUID();
 
@@ -127,6 +137,7 @@ async function processRegularInvitations(userId: string, daySchedules: any[], ne
         location: slot.location,
         description: slot.description || null,
         color: slot.color || null,
+        pricePerSession: slot.pricePerSession != null ? String(slot.pricePerSession) : null,
         timezone: timezone ?? null,
       });
 

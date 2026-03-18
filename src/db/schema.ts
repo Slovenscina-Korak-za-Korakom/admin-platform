@@ -99,6 +99,7 @@ export const regularInvitationsTable = pgTable("regular_invitations", {
   location: varchar({length: 255}).notNull(),
   description: text(),
   color: varchar({length: 50}),
+  pricePerSession: decimal({precision: 10, scale: 2}),
   timezone: varchar({length: 100}), // IANA name, e.g. 'America/Los_Angeles'
   createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
   updatedAt: timestamp({withTimezone: true}).notNull().defaultNow(),
