@@ -63,7 +63,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
       if (!dateMap.has(currentFormated)) {
         const entry: Record<string, number> = {};
         tutors.forEach(t => {
-          entry[t.name] = 0;
+          entry[`tutor-${t.id}`] = 0;
         });
         dateMap.set(currentFormated, entry);
       }
@@ -73,7 +73,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
     allData.forEach(d => {
       const entry = dateMap.get(d.date);
       if (!entry) return;
-      entry[d.tutorName] = metric === "sessions" ? d.sessionCount : d.totalMinutes;
+      entry[`tutor-${d.tutorId}`] = metric === "sessions" ? d.sessionCount : d.totalMinutes;
     })
 
     return Array.from(dateMap.entries())
@@ -84,7 +84,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
 
   const chartConfig = useMemo((): ChartConfig => {
     return Object.fromEntries(
-      tutors.map(t => [t.name, {label: t.name, color: t.color}])
+      tutors.map(t => [`tutor-${t.id}`, {label: t.name, color: t.color}])
     );
   }, [tutors]);
 
@@ -171,7 +171,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
                 <Line
                   key={tutor.id}
                   type="monotone"
-                  dataKey={tutor.name}
+                  dataKey={`tutor-${tutor.id}`}
                   stroke={tutor.color}
                   strokeWidth={2}
                   dot={false}

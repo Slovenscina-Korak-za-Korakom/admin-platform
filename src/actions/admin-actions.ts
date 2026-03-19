@@ -423,6 +423,7 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
       studentId: regularInvitationsTable.studentClerkId,
       startTime: regularInvitationsTable.startTime,
       duration: regularInvitationsTable.duration,
+      timezone: regularInvitationsTable.timezone,
     }).from(regularInvitationsTable)
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
       .where(and(
@@ -454,8 +455,10 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
 
     const regularData = regularSessions.map(s => {
       const [hours, minutes] = s.startTime.split(":").map(Number);
-      const now = new Date();
-      const startTimeUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0, 0));
+      const tz = s.timezone ?? timezone;
+      const nowInTZ = toZonedTime(new Date(), tz);
+      const wallClockDate = new Date(nowInTZ.getFullYear(), nowInTZ.getMonth(), nowInTZ.getDate(), hours, minutes, 0, 0);
+      const startTimeUtc = fromZonedTime(wallClockDate, tz);
       return {
         id: s.id,
         tutorId: s.tutorId,
@@ -497,7 +500,12 @@ export const getAllCancelledSessions = async () => {
       cancelledAt: timeblocksTable.updatedAt
     })
       .from(timeblocksTable)
-      .where(and(eq(timeblocksTable.status, "cancelled"), gte(timeblocksTable.startTime, new Date())));
+      .innerJoin(tutorsTable, eq(tutorsTable.id, timeblocksTable.tutorId))
+      .where(and(
+        eq(tutorsTable.clerkId, userId),
+        eq(timeblocksTable.status, "cancelled"),
+        gte(timeblocksTable.startTime, new Date()),
+      ));
 
     const regularData = await db.select({
       studentId: regularInvitationsTable.studentClerkId,
@@ -508,7 +516,11 @@ export const getAllCancelledSessions = async () => {
     })
       .from(cancelledRegularSessionsTable)
       .innerJoin(regularInvitationsTable, eq(regularInvitationsTable.id, cancelledRegularSessionsTable.invitationId))
-      .where(gte(cancelledRegularSessionsTable.cancelledDate, new Date()))
+      .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
+      .where(and(
+        eq(tutorsTable.clerkId, userId),
+        gte(cancelledRegularSessionsTable.cancelledDate, new Date()),
+      ))
 
     const studentIdsTimeblock = [...new Set(timeblockData.map(s => s.studentId))];
     const userMapTimeblock = await getUserNames(studentIdsTimeblock);

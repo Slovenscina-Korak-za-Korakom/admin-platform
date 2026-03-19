@@ -59,7 +59,7 @@ export const TutorDashboard = async ({timezone}: { timezone: string }) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-sky-700 dark:text-sky-300">
-              {todaysSessions.data.filter((s) => s.status === "booked").length}
+              {todaysSessions.data.filter((s) => s.status !== "cancelled").length}
             </div>
             <p className="text-xs text-sky-600/75 dark:text-sky-400/75 mt-1">Confirmed for today</p>
           </CardContent>
@@ -77,7 +77,7 @@ export const TutorDashboard = async ({timezone}: { timezone: string }) => {
           <CardContent>
             <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
               {formatDuration(
-                todaysSessions.data.filter((s) => s.status === "booked").reduce((sum, s) => sum + s.duration, 0)
+                todaysSessions.data.filter((s) => s.status !== "cancelled").reduce((sum, s) => sum + s.duration, 0)
               )}
             </div>
             <p className="text-xs text-indigo-600/75 dark:text-indigo-400/75 mt-1">Today&apos;s teaching time</p>

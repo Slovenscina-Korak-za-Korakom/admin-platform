@@ -10,8 +10,8 @@ const SESSION_TYPE_COLORS: Record<string, string> = {
 };
 
 export const TodayTimeline = async ({data}: {data: TodaySessions[]}) => {
-  const confirmedCount = data.filter((s) => s.status === "booked").length;
-  const totalMinutes = data.filter((s) => s.status === "booked").reduce((sum, s) => sum + s.duration, 0);
+  const confirmedCount = data.filter((s) => s.status !== "cancelled").length;
+  const totalMinutes = data.filter((s) => s.status !== "cancelled").reduce((sum, s) => sum + s.duration, 0);
 
 
   return (
