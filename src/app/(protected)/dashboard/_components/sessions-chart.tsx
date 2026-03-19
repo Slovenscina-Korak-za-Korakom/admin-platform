@@ -55,7 +55,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
   // Pivot: one entry per date, each tutor is a key with their value (default 0)
   const chartData = useMemo(() => {
     const dateMap = new Map<string, Record<string, number>>();
-    const start = getDateFromFilter(activeFilter) ?? new Date("01-01-2026");
+    const start = getDateFromFilter(activeFilter) ?? new Date("2026-01-01");
     const now = new Date();
     const current = new Date(start);
     while (current < now) {
