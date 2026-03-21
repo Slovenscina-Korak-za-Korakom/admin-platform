@@ -1,28 +1,24 @@
 "use client";
 import React, { useState } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardAction,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   IconLanguage,
   IconMapPin,
   IconStopwatch,
   IconUsers,
+  IconCheck,
+  IconCalendar,
+  IconX,
+  IconCurrencyEuro,
 } from "@tabler/icons-react";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { z } from "zod";
@@ -36,36 +32,16 @@ import { toZonedTime } from "date-fns-tz";
 import { Booking } from "../booking/_components/bookings";
 
 export const eventSchema = z.object({
-  theme: z.string().min(2, {
-    message: "Theme must be at least 2 characters.",
-  }),
-  tutor: z.string().min(2, {
-    message: "Tutor must be at least 2 characters.",
-  }),
-  date: z.string().min(1, {
-    message: "Date is required.",
-  }),
-  time: z.string().min(1, {
-    message: "Time is required.",
-  }),
-  description: z.string().min(1, {
-    message: "Description is required.",
-  }),
-  price: z.string().min(1, {
-    message: "Price is required.",
-  }),
-  level: z.string().min(1, {
-    message: "Level is required.",
-  }),
-  duration: z.string().min(1, {
-    message: "Duration is required.",
-  }),
-  spots: z.string().min(1, {
-    message: "Spots is required.",
-  }),
-  location: z.string().min(1, {
-    message: "Location is required.",
-  }),
+  theme: z.string().min(2, { message: "Theme must be at least 2 characters." }),
+  tutor: z.string().min(2, { message: "Tutor must be at least 2 characters." }),
+  date: z.string().min(1, { message: "Date is required." }),
+  time: z.string().min(1, { message: "Time is required." }),
+  description: z.string().min(1, { message: "Description is required." }),
+  price: z.string().min(1, { message: "Price is required." }),
+  level: z.string().min(1, { message: "Level is required." }),
+  duration: z.string().min(1, { message: "Duration is required." }),
+  spots: z.string().min(1, { message: "Spots is required." }),
+  location: z.string().min(1, { message: "Location is required." }),
 });
 
 const AddEventForm = ({
@@ -76,37 +52,36 @@ const AddEventForm = ({
   booking?: Booking | null;
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [editingField, setEditingField] = useState<string | null>(null);
   const router = useRouter();
+
   const form = useForm<z.infer<typeof eventSchema>>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
-      theme: booking?.theme || "Event Theme",
-      tutor: booking?.tutor || "Tutor Name",
-      date: booking ? new Date(booking.date).toISOString() : "",
-      time: booking ? new Date(booking.date).toISOString() : "",
-      description: booking?.description || "Event description goes here...",
-      price: booking?.price.toString() || "25.00",
-      level: booking?.level || "A1",
-      duration: booking?.duration?.toString() || "60",
-      spots: booking?.maxBooked?.toString() || "10",
-      location: booking?.location || "Ljubljana",
+      theme: booking?.theme || "",
+      tutor: booking?.tutor || "",
+      date: booking ? new Date(booking.date).toISOString().split("T")[0] : "",
+      time: booking
+        ? toZonedTime(new Date(booking.date), "Europe/Ljubljana")
+            .toTimeString()
+            .slice(0, 5)
+        : "",
+      description: booking?.description || "",
+      price: booking?.price.toString() || "",
+      level: booking?.level || "",
+      duration: booking?.duration?.toString() || "",
+      spots: booking?.maxBooked?.toString() || "",
+      location: booking?.location || "",
     },
   });
 
-  const handleDoubleClick = (fieldName: string) => {
-    setEditingField(fieldName);
-  };
-
-  const handleInputBlur = () => {
-    setEditingField(null);
-  };
-
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      setEditingField(null);
-    }
-  };
+  const theme = form.watch("theme");
+  const tutor = form.watch("tutor");
+  const date = form.watch("date");
+  const price = form.watch("price");
+  const level = form.watch("level");
+  const spots = form.watch("spots");
+  const duration = form.watch("duration");
+  const location = form.watch("location");
 
   const onSubmit = async (values: z.infer<typeof eventSchema>) => {
     setIsLoading(true);
@@ -123,265 +98,379 @@ const AddEventForm = ({
     setIsLoading(false);
   };
 
-  const renderEditableField = (
-    fieldName: keyof z.infer<typeof eventSchema>,
-    displayValue: string,
-    placeholder: string,
-    type: string = "text"
-  ) => {
-    const isEditingThisField = editingField === fieldName;
+  const formattedDate = date
+    ? toZonedTime(new Date(date), "Europe/Ljubljana").toLocaleDateString(
+        "sl-SI",
+        { year: "numeric", month: "long", day: "numeric" }
+      )
+    : null;
 
-    if (isEditingThisField) {
-      return (
-        <FormField
-          control={form.control}
-          name={fieldName}
-          render={({ field }) => (
-            <FormItem className="w-full">
-              <FormControl>
-                <Input
-                  {...field}
-                  type={type}
-                  placeholder={placeholder}
-                  onBlur={handleInputBlur}
-                  onKeyDown={handleInputKeyDown}
-                  autoFocus
-                  className="w-full"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      );
-    }
-
-    return (
-      <div
-        onDoubleClick={() => handleDoubleClick(fieldName)}
-        className="cursor-pointer hover:bg-muted/50 p-1 rounded-lg transition-colors"
-      >
-        {displayValue || placeholder}
-      </div>
-    );
-  };
+  const priceNum = parseFloat(price);
+  const formattedPrice = !isNaN(priceNum)
+    ? priceNum.toFixed(2)
+    : null;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <Card className="w-full h-fit">
-          <CardHeader>
-            <CardTitle>
-              {renderEditableField("theme", form.watch("theme"), "Event Theme")}
-            </CardTitle>
-            <CardDescription>
-              {renderEditableField("tutor", form.watch("tutor"), "Tutor Name")}
-            </CardDescription>
-            <CardAction>
-              <div className="flex flex-col gap-1 items-end text-foreground">
-                {renderEditableField(
-                  "date",
-                  form.watch("date")
-                    ? toZonedTime(
-                        new Date(form.watch("date")),
-                        "Europe/Ljubljana"
-                      ).toLocaleDateString("sl-SI", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "",
-                  "DD/MM/YYYY",
-                  "date"
-                )}
-                {renderEditableField(
-                  "time",
-                  (() => {
-                    const timeValue = form.watch("time");
-                    if (!timeValue) return "";
-                    // If the value is an ISO string, parse and format it
-                    // If the value is already in "HH:MM" format, just show it
-                    // Try to detect if it's an ISO string (contains "T")
-                    if (
-                      typeof timeValue === "string" &&
-                      timeValue.includes("T")
-                    ) {
-                      // Parse as date and format as HH:MM
-                      const date = new Date(timeValue);
-                      // If invalid date, fallback to raw value
-                      if (isNaN(date.getTime())) return timeValue;
-                      return toZonedTime(
-                        date,
-                        "Europe/Ljubljana"
-                      ).toLocaleTimeString("sl-SI", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
-                    }
-                    // If it's already in "HH:MM" format, just return it
-                    return timeValue;
-                  })(),
-                  "HH:MM",
-                  "time"
-                )}
-              </div>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {renderEditableField(
-              "description",
-              form.watch("description"),
-              "Event description..."
-            )}
-          </CardContent>
-          <CardFooter className="w-full flex flex-col justify-center items-start gap-5">
-            <div className="flex items-center justify-between w-full gap-5">
-              <span className="text-[45px] font-medium flex items-center gap-2">
-                <span>€</span>
-                {renderEditableField(
-                  "price",
-                  (() => {
-                    const price = form.watch("price");
-                    if (!price) return "";
-                    // Replace comma with dot for parsing, then format
-                    const num = parseFloat(price);
-                    if (isNaN(num)) return price;
-                    // Always show two decimals, use comma as decimal separator
-                    return num.toFixed(2).replace(".", ",");
-                  })(),
-                  "0,00",
-                  "number"
-                )}
-              </span>
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex flex-row items-center gap-3 w-full">
-                  <Badge
-                    onDoubleClick={() => handleDoubleClick("level")}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <IconLanguage />
-                    {editingField === "level" ? (
-                      <FormField
-                        control={form.control}
-                        name="level"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleInputKeyDown}
-                                autoFocus
-                                className="w-20 h-6 text-xs"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      form.watch("level") || "Level"
-                    )}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    onDoubleClick={() => handleDoubleClick("spots")}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <IconUsers />
-                    {editingField === "spots" ? (
-                      <FormField
-                        control={form.control}
-                        name="spots"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                type="number"
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleInputKeyDown}
-                                autoFocus
-                                className="w-16 h-6 text-xs"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      form.watch("spots") || "10"
-                    )}
-                  </Badge>
-                  <Badge
-                    variant="secondary"
-                    onDoubleClick={() => handleDoubleClick("duration")}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <IconStopwatch />
-                    {editingField === "duration" ? (
-                      <FormField
-                        control={form.control}
-                        name="duration"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                type="number"
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleInputKeyDown}
-                                autoFocus
-                                className="w-16 h-6 text-xs"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      form.watch("duration") || "60"
-                    )}
-                  </Badge>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="w-full cursor-pointer hover:bg-muted/50 transition-colors"
-                  onDoubleClick={() => handleDoubleClick("location")}
-                >
-                  <IconMapPin />
-                  {editingField === "location" ? (
-                    <FormField
-                      control={form.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              onBlur={handleInputBlur}
-                              onKeyDown={handleInputKeyDown}
-                              autoFocus
-                              className="w-32 h-6 text-xs"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    form.watch("location") || "Location"
-                  )}
-                </Badge>
-              </div>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex flex-col sm:flex-row h-full"
+      >
+        {/* ── LEFT PANEL ── gradient preview */}
+        <div
+          className="sm:w-[220px] shrink-0 flex flex-col"
+          style={{
+            background:
+              "linear-gradient(170deg, #2563eb 0%, #7c3aed 55%, #6d28d9 100%)",
+          }}
+        >
+          {/* Icon + heading */}
+          <div className="px-6 pt-7 pb-5">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mb-5">
+              <IconCalendar className="h-5 w-5 text-white" />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
+              {booking ? "Edit Event" : "New Event"}
+            </p>
+            <h2 className="text-white text-xl font-bold leading-snug break-words">
+              {theme || "Event\nPreview"}
+            </h2>
+          </div>
+
+          {/* Live preview */}
+          <div className="px-6 flex-1 space-y-4 overflow-hidden">
+            {tutor && (
+              <div>
+                <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">
+                  Tutor
+                </p>
+                <p className="text-white/85 text-sm font-medium truncate">
+                  {tutor}
+                </p>
+              </div>
+            )}
+
+            {formattedDate && (
+              <div>
+                <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">
+                  Date
+                </p>
+                <p className="text-white/80 text-xs leading-relaxed">
+                  {formattedDate}
+                </p>
+              </div>
+            )}
+
+            {formattedPrice && (
+              <div>
+                <span className="text-[38px] font-extrabold text-white leading-none tabular-nums">
+                  €{formattedPrice}
+                </span>
+              </div>
+            )}
+
+            <div className="w-full h-px bg-white/10" />
+
+            {/* Info badges */}
+            <div className="flex flex-wrap gap-1.5">
+              {level && (
+                <span className="inline-flex items-center gap-1 bg-white/15 text-white/80 text-[11px] px-2 py-0.5 rounded-full">
+                  <IconLanguage className="w-2.5 h-2.5" />
+                  {level}
+                </span>
+              )}
+              {spots && (
+                <span className="inline-flex items-center gap-1 bg-white/15 text-white/80 text-[11px] px-2 py-0.5 rounded-full">
+                  <IconUsers className="w-2.5 h-2.5" />
+                  {spots}
+                </span>
+              )}
+              {duration && (
+                <span className="inline-flex items-center gap-1 bg-white/15 text-white/80 text-[11px] px-2 py-0.5 rounded-full">
+                  <IconStopwatch className="w-2.5 h-2.5" />
+                  {duration} min
+                </span>
+              )}
+              {location && (
+                <span className="inline-flex items-center gap-1 bg-white/15 text-white/80 text-[11px] px-2 py-0.5 rounded-full">
+                  <IconMapPin className="w-2.5 h-2.5" />
+                  {location}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="p-5 pt-4 space-y-2">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-white text-violet-700 hover:bg-white/90 font-semibold shadow-md"
+            >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : booking ? (
-                "Edit Event"
               ) : (
-                "Add Event"
+                <IconCheck className="h-4 w-4 mr-1.5" />
               )}
+              {booking ? "Save Changes" : "Create Event"}
             </Button>
-          </CardFooter>
-        </Card>
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="w-full text-white/60 hover:text-white hover:bg-white/10"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL ── form fields */}
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 shrink-0">
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">
+                Event Details
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fill in all the required fields
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <IconX className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Scrollable fields */}
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="theme"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Theme
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="e.g. Slovenian Cuisine"
+                        className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tutor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Tutor
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Tutor full name"
+                        className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Date
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="date"
+                          className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Time
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="time"
+                          className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Description
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Describe the event..."
+                        rows={3}
+                        className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30 resize-none"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Price (EUR)
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <IconCurrencyEuro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                          <Input
+                            {...field}
+                            type="number"
+                            step="0.01"
+                            placeholder="25.00"
+                            className="pl-9 rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="level"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Level
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="e.g. A1, B2"
+                          className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="spots"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Max Spots
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <IconUsers className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="10"
+                            className="pl-9 rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Duration (min)
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <IconStopwatch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="60"
+                            className="pl-9 rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Location
+                    </FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <IconMapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                          {...field}
+                          placeholder="e.g. Ljubljana, Online"
+                          className="pl-9 rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        </div>
       </form>
     </Form>
   );

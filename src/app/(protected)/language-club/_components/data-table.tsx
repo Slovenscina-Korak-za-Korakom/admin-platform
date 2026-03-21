@@ -33,6 +33,7 @@ import {
   IconAdjustments,
   IconChevronLeft,
   IconChevronRight,
+  IconSearch,
 } from "@tabler/icons-react";
 import AddEventDialog from "./add-event-dialog";
 import { useRouter } from "next/navigation";
@@ -51,7 +52,6 @@ export function DataTable({ data, filteredEvents }: DataTableProps) {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const router = useRouter();
 
-  // Create columns with router access
   const columns = createColumns(router);
 
   const table = useReactTable({
@@ -75,30 +75,40 @@ export function DataTable({ data, filteredEvents }: DataTableProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between py-4">
-        <Input
-          placeholder="Filter events by theme..."
-          value={(table.getColumn("theme")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("theme")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+      {/* Toolbar */}
+      <div className="flex items-center justify-between pb-4 gap-3 flex-wrap">
+        <div className="relative max-w-xs w-full">
+          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Input
+            placeholder="Search by theme..."
+            value={(table.getColumn("theme")?.getFilterValue() as string) ?? ""}
+            onChange={(event) =>
+              table.getColumn("theme")?.setFilterValue(event.target.value)
+            }
+            className="pl-9 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30 rounded-xl"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <AddEventDialog />
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setShowAllEvents(!showAllEvents)}
+            className="border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs"
           >
-            {showAllEvents ? "Show relevant" : "Show all"}
+            {showAllEvents ? "Upcoming only" : "Show all"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              >
                 <IconAdjustments className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="rounded-xl">
               {table
                 .getAllColumns()
                 .filter((column) => column.getCanHide())
@@ -120,14 +130,22 @@ export function DataTable({ data, filteredEvents }: DataTableProps) {
           </DropdownMenu>
         </div>
       </div>
-      <div className="overflow-hidden rounded-md border">
+
+      {/* Table */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow
+                key={headerGroup.id}
+                className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-200 dark:border-slate-700/60"
+              >
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider py-3"
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -143,37 +161,36 @@ export function DataTable({ data, filteredEvents }: DataTableProps) {
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
-                // Get the date value from the row
-                const dateCell = row
-                  .getAllCells()
-                  .find((cell) => cell.column.id === "date");
+                const dateValue = row.original.date;
                 let isPast = false;
-                if (dateCell) {
-                  // The value may be a Date or a string, try to parse
-                  const dateValue = row.original.date;
-                  let eventDate: Date | null = null;
-                  if (dateValue instanceof Date) {
-                    eventDate = dateValue;
-                  } else if (
-                    typeof dateValue === "string" ||
-                    typeof dateValue === "number"
-                  ) {
-                    eventDate = new Date(dateValue);
-                  }
-                  if (eventDate && !isNaN(eventDate.getTime())) {
-                    isPast = eventDate < new Date();
-                  }
+                let eventDate: Date | null = null;
+                if (dateValue instanceof Date) {
+                  eventDate = dateValue;
+                } else if (
+                  typeof dateValue === "string" ||
+                  typeof dateValue === "number"
+                ) {
+                  eventDate = new Date(dateValue);
                 }
+                if (eventDate && !isNaN(eventDate.getTime())) {
+                  isPast = eventDate < new Date();
+                }
+
                 return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     className={
-                      isPast ? "bg-red-500/10 hover:bg-red-500/20" : ""
+                      isPast
+                        ? "bg-red-50/80 hover:bg-red-100/60 dark:bg-red-500/5 dark:hover:bg-red-500/10 border-slate-100 dark:border-slate-800"
+                        : "hover:bg-slate-50/60 dark:hover:bg-slate-800/30 border-slate-100 dark:border-slate-800"
                     }
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell
+                        key={cell.id}
+                        className="py-3 text-sm text-slate-700 dark:text-slate-300"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -187,38 +204,44 @@ export function DataTable({ data, filteredEvents }: DataTableProps) {
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-32 text-center text-slate-400 dark:text-slate-500 text-sm"
                 >
-                  No results.
+                  No events found.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="text-muted-foreground text-sm">
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between pt-4">
+        <p className="text-xs text-slate-400 dark:text-slate-500">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {table.getFilteredRowModel().rows.length} selected
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+          >
+            <IconChevronLeft className="w-4 h-4" />
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+          >
+            Next
+            <IconChevronRight className="w-4 h-4" />
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          <IconChevronLeft className="w-4 h-4" />
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-          <IconChevronRight className="w-4 h-4" />
-        </Button>
       </div>
     </div>
   );
