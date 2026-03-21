@@ -44,7 +44,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { getStudents, createOneTimeSession } from "@/actions/timeblocks";
+import { getStudents, createOneTimeSession, createAvailableSlot } from "@/actions/timeblocks";
+import { getSessionColor } from "@/lib/session-colors";
+import { AvailableSlotData } from "@/components/calendar/types";
 import type { Student } from "./schedule-sheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -126,9 +128,10 @@ const todayStr = () => new Date().toISOString().split("T")[0];
 
 interface SessionSchedulerProps {
   data: SessionData[];
+  availableSlots: AvailableSlotData[];
 }
 
-const SessionScheduler = ({ data }: SessionSchedulerProps) => {
+const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
   const calendarRef = useRef<FullCalendar>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -140,6 +143,9 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
   const [currentView, setCurrentView] = useState("dayGridMonth");
   const [showWeekends, setShowWeekends] = useState(true);
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
+
+  // Mode: "available" = mark as available slot, "book" = book for a student
+  const [mode, setMode] = useState<"available" | "book">("available");
 
   // Student state
   const [students, setStudents] = useState<Student[]>([]);
@@ -228,6 +234,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
     }
 
     setError(null);
+    setMode("available");
     setFormData({
       date: dateStr,
       startTime,
@@ -245,26 +252,34 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
   // ── Save ──────────────────────────────────────────────────────────────
 
   const handleSave = useCallback(() => {
-    if (!formData.studentClerkId) return;
+    if (mode === "book" && !formData.studentClerkId) return;
     setError(null);
     startTransition(async () => {
-      const result = await createOneTimeSession({
-        date: formData.date,
-        startTime: formData.startTime,
-        duration: formData.duration,
-        sessionType: formData.sessionType,
-        location: formData.location,
-        studentClerkId: formData.studentClerkId,
-      });
+      const result = mode === "available"
+        ? await createAvailableSlot({
+            date: formData.date,
+            startTime: formData.startTime,
+            duration: formData.duration,
+            sessionType: formData.sessionType,
+            location: formData.location,
+          })
+        : await createOneTimeSession({
+            date: formData.date,
+            startTime: formData.startTime,
+            duration: formData.duration,
+            sessionType: formData.sessionType,
+            location: formData.location,
+            studentClerkId: formData.studentClerkId,
+          });
 
       if (result.status === 200) {
         setIsSheetOpen(false);
         router.refresh();
       } else {
-        setError(result.message ?? "Failed to save session. Please try again.");
+        setError(result.message ?? "Failed to save. Please try again.");
       }
     });
-  }, [formData, router, startTransition]);
+  }, [mode, formData, router, startTransition]);
 
   const closeSheet = useCallback(() => {
     if (isPending) return;
@@ -275,7 +290,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
   // ── Calendar events ────────────────────────────────────────────────────
 
   const calendarEvents = useMemo(() => {
-    return data.map((session) => {
+    const booked = data.map((session) => {
       const color =
         session.sessionType === "group"
           ? SESSION_COLORS.group
@@ -301,10 +316,40 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
         extendedProps: {
           sessionType: session.sessionType,
           location: session.location,
+          isAvailable: false,
         },
       };
     });
-  }, [data]);
+
+    const available = availableSlots.map((slot) => {
+      const color = getSessionColor(slot.sessionType);
+
+      const title =
+        slot.sessionType === "group"
+          ? "Group"
+          : slot.sessionType === "test"
+          ? "Test"
+          : "Individual";
+
+      return {
+        id: `available-${slot.id}`,
+        title,
+        start: slot.startTime,
+        end: new Date(new Date(slot.startTime).getTime() + slot.duration * 60000),
+        backgroundColor: "transparent",
+        borderColor: color,
+        textColor: color,
+        extendedProps: {
+          sessionType: slot.sessionType,
+          location: slot.location,
+          isAvailable: true,
+          color,
+        },
+      };
+    });
+
+    return [...booked, ...available];
+  }, [data, availableSlots]);
 
   // ── Derived form values ────────────────────────────────────────────────
 
@@ -422,10 +467,85 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
             return arg.date < today ? ["opacity-40"] : [];
           }}
           eventContent={(eventInfo: any) => {
-            const color = eventInfo.event.backgroundColor as string;
+            const isAvailable = eventInfo.event.extendedProps.isAvailable as boolean;
             const location = eventInfo.event.extendedProps.location as string;
             const locationLabel = location === "online" ? "Online" : "Classroom";
 
+            if (isAvailable) {
+              const color = eventInfo.event.extendedProps.color as string;
+              return (
+                <div
+                  style={{
+                    height: "100%",
+                    width: "100%",
+                    borderRadius: "5px",
+                    overflow: "hidden",
+                    position: "relative",
+                    boxSizing: "border-box",
+                    border: `1.5px dashed ${color}`,
+                    background: `repeating-linear-gradient(
+                      -45deg,
+                      transparent,
+                      transparent 5px,
+                      ${color}18 5px,
+                      ${color}18 10px
+                    )`,
+                    cursor: "default",
+                  }}
+                >
+                  {/* Left accent bar */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0, top: 0, bottom: 0,
+                      width: "3px",
+                      backgroundColor: color,
+                      opacity: 0.5,
+                    }}
+                  />
+                  {/* Text */}
+                  <div
+                    style={{
+                      padding: "5px 8px 5px 10px",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "flex-start",
+                      gap: "1px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.78rem",
+                        color,
+                        lineHeight: 1.25,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {eventInfo.event.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.68rem",
+                        color,
+                        opacity: 0.7,
+                        lineHeight: 1.25,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {locationLabel} · {eventInfo.timeText}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            const color = eventInfo.event.backgroundColor as string;
             return (
               <div
                 style={{
@@ -521,13 +641,14 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                 <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
                   <IconCalendar className="h-5 w-5 text-white" />
                 </div>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={closeSheet}
                   disabled={isPending}
                   className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
                 >
                   <IconX className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
 
               <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
@@ -560,6 +681,70 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
           {/* Body */}
           <div className="flex-1 overflow-y-auto">
 
+            {/* Mode toggle */}
+            <div className="px-5 pt-5 pb-4 border-b border-border/60">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                Event Type
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("available")}
+                  className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
+                  style={{
+                    backgroundColor: mode === "available" ? "rgba(8, 145, 178, 0.07)" : "transparent",
+                    borderColor: mode === "available" ? "#0891b2" : "hsl(var(--border))",
+                    borderWidth: "1.5px",
+                  }}
+                >
+                  <div
+                    className="w-3.5 h-3.5 rounded-sm shrink-0 border"
+                    style={{
+                      borderStyle: "dashed",
+                      borderColor: mode === "available" ? "#0891b2" : "hsl(var(--border))",
+                      background: mode === "available"
+                        ? "repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(8,145,178,0.2) 2px, rgba(8,145,178,0.2) 4px)"
+                        : "transparent",
+                    }}
+                  />
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: mode === "available" ? "#0891b2" : undefined }}
+                  >
+                    Available Slot
+                  </span>
+                  {mode === "available" && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-600" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("book")}
+                  className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
+                  style={{
+                    backgroundColor: mode === "book" ? "rgba(37, 99, 235, 0.07)" : "transparent",
+                    borderColor: mode === "book" ? "#2563eb" : "hsl(var(--border))",
+                    borderWidth: "1.5px",
+                  }}
+                >
+                  <IconUser
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={{ color: mode === "book" ? "#2563eb" : undefined }}
+                  />
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: mode === "book" ? "#2563eb" : undefined }}
+                  >
+                    Book Student
+                  </span>
+                  {mode === "book" && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+                {mode === "available"
+                  ? "Mark this slot as available for students to book."
+                  : "Directly book a session for a specific student."}
+              </p>
+            </div>
+
             {/* Date & time */}
             <div className="px-5 pt-5 pb-4 border-b border-border/60">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
@@ -573,7 +758,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                     value={formData.date}
                     min={todayStr()}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
+                    className="cursor-pointer w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
                   />
                 </div>
                 <div>
@@ -582,7 +767,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                     type="time"
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
+                    className="cursor-pointer w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
                   />
                 </div>
               </div>
@@ -600,7 +785,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                         key={d}
                         type="button"
                         onClick={() => setFormData({ ...formData, duration: d })}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
+                        className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
                         style={{
                           backgroundColor: active ? "rgba(37, 99, 235, 0.08)" : "transparent",
                           borderColor: active ? "#2563eb" : "hsl(var(--border))",
@@ -631,7 +816,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                         onClick={() =>
                           setFormData({ ...formData, sessionType: key, color: SESSION_COLORS[key] })
                         }
-                        className="relative rounded-xl px-3 py-3 text-center transition-all"
+                        className="cu relative rounded-xl px-3 py-3 text-center transition-all"
                         style={{
                           backgroundColor: active ? cfg.lightColor : "transparent",
                           border: `1.5px solid ${active ? cfg.hex : "hsl(var(--border))"}`,
@@ -659,8 +844,8 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
               </p>
             </div>
 
-            {/* Student — required */}
-            <div className="px-5 py-4 border-b border-border/60">
+            {/* Student — only shown when booking for a student */}
+            {mode === "book" && <div className="px-5 py-4 border-b border-border/60">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Student
               </p>
@@ -668,7 +853,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="w-full flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm hover:border-border/80 transition-colors bg-background"
+                    className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm hover:border-border/80 transition-colors bg-background"
                   >
                     {selectedStudent ? (
                       <span className="flex items-center gap-2.5 min-w-0">
@@ -719,7 +904,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                                 formData.studentClerkId === student.clerkId ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            <div className="flex flex-col min-w-0">
+                            <div className="cursor-pointer flex flex-col min-w-0">
                               <span className="font-medium truncate">{student.name}</span>
                               <span className="text-xs text-muted-foreground truncate">
                                 {student.email}
@@ -737,12 +922,12 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, studentClerkId: "", studentEmail: "" })}
-                  className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  className="cursor-pointer mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 >
                   <IconX className="h-3 w-3" /> Clear student
                 </button>
               )}
-            </div>
+            </div>}
 
             {/* Location */}
             <div className="px-5 py-4">
@@ -761,7 +946,7 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
                         onClick={() =>
                           setFormData({ ...formData, location: key as "online" | "classroom" })
                         }
-                        className="flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
+                        className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
                         style={{
                           backgroundColor: active ? "rgba(37, 99, 235, 0.07)" : "transparent",
                           borderColor: active ? "#2563eb" : "hsl(var(--border))",
@@ -799,8 +984,8 @@ const SessionScheduler = ({ data }: SessionSchedulerProps) => {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!formData.date || !formData.startTime || !formData.studentClerkId || isPending}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!formData.date || !formData.startTime || (mode === "book" && !formData.studentClerkId) || isPending}
+                className="cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: "linear-gradient(135deg, #0891b2, #2563eb)" }}
               >
                 <IconCheck className="h-4 w-4" />

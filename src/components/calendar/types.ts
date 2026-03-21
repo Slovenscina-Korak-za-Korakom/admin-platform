@@ -32,6 +32,15 @@ export interface SessionData {
   invitationId?: number;
 }
 
+export interface AvailableSlotData {
+  id: number;
+  startTime: Date;
+  duration: number;
+  sessionType: string;
+  location: string;
+  tutorId: number;
+}
+
 export interface StudentInfo {
   name: string | null;
   email: string;

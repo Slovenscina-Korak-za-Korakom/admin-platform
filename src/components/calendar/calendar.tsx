@@ -11,14 +11,16 @@ import {
   EventClickArg,
   SessionData,
   StudentInfo,
+  AvailableSlotData,
 } from "@/components/calendar/types";
 import {CalendarControls} from "@/components/calendar/calendar-controls";
 import {EventSheet} from "@/components/calendar/event-sheet";
 import "@/components/calendar/calendar-styles.css";
 import {getStatusColor} from "./calendar-functions";
-import {getStudentInfo} from "@/actions/timeblocks";
+import {getStudentInfo, deleteAvailableSlot} from "@/actions/timeblocks";
+import {getSessionColor} from "@/lib/session-colors";
 
-export default function Calendar({data}: { data: SessionData[] }) {
+export default function Calendar({data, availableSlots = []}: { data: SessionData[]; availableSlots?: AvailableSlotData[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -49,6 +51,7 @@ export default function Calendar({data}: { data: SessionData[] }) {
   const [studentsInfo, setStudentsInfo] = useState<
     Record<string, StudentInfo | null>
   >({});
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
 
   // Fetch student names for all unique studentIds
@@ -87,7 +90,7 @@ export default function Calendar({data}: { data: SessionData[] }) {
     }
   }, [data]);
 
-  const events = data.map((session) => {
+  const bookedEvents = data.map((session) => {
     const studentInfo = session.studentId
       ? studentsInfo[session.studentId]
       : null;
@@ -110,9 +113,38 @@ export default function Calendar({data}: { data: SessionData[] }) {
         sessionType: session.sessionType,
         duration: session.duration,
         invitationId: session.invitationId,
+        isAvailable: false,
       },
     };
   });
+
+  const availableEvents = availableSlots.map((slot) => {
+    const color = getSessionColor(slot.sessionType);
+    const title =
+      slot.sessionType === "group"
+        ? "Group"
+        : slot.sessionType === "test"
+        ? "Test"
+        : "Individual";
+    return {
+      id: `available-${slot.id}`,
+      title,
+      start: slot.startTime,
+      end: new Date(new Date(slot.startTime).getTime() + slot.duration * 60000),
+      backgroundColor: "transparent",
+      borderColor: color,
+      textColor: color,
+      extendedProps: {
+        location: slot.location,
+        sessionType: slot.sessionType,
+        duration: slot.duration,
+        isAvailable: true,
+        color,
+      },
+    };
+  });
+
+  const events = [...bookedEvents, ...availableEvents];
 
   // Update URL params when view or date changes
   const updateUrlParams = useCallback(
@@ -217,11 +249,31 @@ export default function Calendar({data}: { data: SessionData[] }) {
   }, [handleMoreEventsClick]);
 
   const handleEventClick = (arg: EventClickArg) => {
+    if (arg.event.extendedProps?.isAvailable) {
+      const slotId = parseInt(arg.event.id.replace("available-", ""));
+      setSelectedSlotId(slotId);
+      const session: SessionData & { studentInfo: StudentInfo | null } = {
+        id: slotId,
+        tutorId: 0,
+        startTime: arg.event.start!.toISOString(),
+        duration: arg.event.extendedProps.duration,
+        status: "available",
+        sessionType: arg.event.extendedProps.sessionType,
+        location: arg.event.extendedProps.location,
+        studentId: "",
+        studentInfo: null,
+      };
+      setSelectedEvent(session);
+      setIsEventSheetOpen(true);
+      return;
+    }
+
+    setSelectedSlotId(null);
     // Convert FullCalendar event back to SessionData with studentInfo
     const session: SessionData & { studentInfo: StudentInfo | null } = {
       id: parseInt(arg.event.id),
       tutorId: arg.event.extendedProps.tutorId,
-      startTime: arg.event.start!.toISOString(), // Convert Date to string
+      startTime: arg.event.start!.toISOString(),
       duration: arg.event.extendedProps.duration,
       status: arg.event.extendedProps.status,
       sessionType: arg.event.extendedProps.sessionType,
@@ -384,10 +436,13 @@ export default function Calendar({data}: { data: SessionData[] }) {
             return dayNumber;
           }}
           eventContent={(eventInfo: any) => {
+            const isAvailable = eventInfo.event.extendedProps?.isAvailable as boolean;
             const start = new Date(eventInfo.event.start);
             const end = new Date(eventInfo.event.end);
             const pad = (n: number) => n.toString().padStart(2, "0");
             const timeString = `${pad(start.getHours())}:${pad(start.getMinutes())} – ${pad(end.getHours())}:${pad(end.getMinutes())}`;
+            const location = eventInfo.event.extendedProps?.location as string;
+            const locationLabel = location === "online" ? "Online" : "Classroom";
 
             const status = eventInfo.event.extendedProps?.status;
             const sessionType = eventInfo.event.extendedProps?.sessionType;
@@ -397,6 +452,77 @@ export default function Calendar({data}: { data: SessionData[] }) {
             // Student name is the first part of the title (before " - ")
             const titleParts = (eventInfo.event.title as string).split(" - ");
             const studentName = titleParts[0] ?? eventInfo.event.title;
+
+            if (isAvailable) {
+              return (
+                <div
+                  style={{
+                    height: "100%",
+                    width: "100%",
+                    borderRadius: "5px",
+                    overflow: "hidden",
+                    position: "relative",
+                    boxSizing: "border-box",
+                    border: `1.5px dashed ${color}`,
+                    background: `repeating-linear-gradient(
+                      -45deg,
+                      transparent,
+                      transparent 5px,
+                      ${color}18 5px,
+                      ${color}18 10px
+                    )`,
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0, top: 0, bottom: 0,
+                      width: "3px",
+                      backgroundColor: color,
+                      opacity: 0.5,
+                    }}
+                  />
+                  <div
+                    style={{
+                      padding: "5px 8px 5px 10px",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "flex-start",
+                      gap: "1px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.78rem",
+                        color,
+                        lineHeight: 1.25,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {eventInfo.event.title} · Available
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.68rem",
+                        color,
+                        opacity: 0.7,
+                        lineHeight: 1.25,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {locationLabel} · {timeString}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -475,8 +601,13 @@ export default function Calendar({data}: { data: SessionData[] }) {
 
       <EventSheet
         isEventSheetOpen={isEventSheetOpen}
-        onOpenChange={setIsEventSheetOpen}
+        onOpenChange={(open) => {
+          setIsEventSheetOpen(open);
+          if (!open) setSelectedSlotId(null);
+        }}
         selectedSession={selectedEvent}
+        slotId={selectedSlotId}
+        onDeleteSlot={deleteAvailableSlot}
       />
     </div>
   );

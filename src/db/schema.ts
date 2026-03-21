@@ -114,3 +114,15 @@ export const cancelledRegularSessionsTable = pgTable("cancelled_regular_sessions
   reason: text(),
   createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
 });
+
+export const availableSlotsTable = pgTable("available_slots", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  tutorId: integer()
+    .notNull()
+    .references(() => tutorsTable.id),
+  startTime: timestamp({withTimezone: true}).notNull(),
+  duration: integer().notNull(),
+  sessionType: varchar({length: 255}).notNull(),
+  location: varchar({length: 255}).notNull(),
+  createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
+});

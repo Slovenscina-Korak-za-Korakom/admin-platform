@@ -2,7 +2,7 @@
 "use server";
 
 import db from "@/db";
-import {schedulesTable, timeblocksTable, tutorsTable, regularInvitationsTable, cancelledRegularSessionsTable} from "@/db/schema";
+import {schedulesTable, timeblocksTable, tutorsTable, regularInvitationsTable, cancelledRegularSessionsTable, availableSlotsTable} from "@/db/schema";
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import {eq, desc, and} from "drizzle-orm";
 import {randomUUID} from "crypto";
@@ -682,5 +682,95 @@ export const createOneTimeSession = async (data: {
   } catch (error) {
     console.error("Failed to create one-time session:", error);
     return {message: "Failed to create session", status: 500};
+  }
+};
+
+export const createAvailableSlot = async (data: {
+  date: string;       // "YYYY-MM-DD"
+  startTime: string;  // "HH:mm"
+  duration: number;   // minutes
+  sessionType: "individual" | "group" | "test";
+  location: "online" | "classroom";
+}) => {
+  const {userId} = await auth();
+  if (!userId) return {message: "Unauthorized", status: 401};
+
+  try {
+    const tutors = await db
+      .select({id: tutorsTable.id})
+      .from(tutorsTable)
+      .where(eq(tutorsTable.clerkId, userId))
+      .limit(1);
+
+    if (tutors.length === 0) return {message: "Tutor not found", status: 404};
+
+    const [year, month, day] = data.date.split("-").map(Number);
+    const [h, m] = data.startTime.split(":").map(Number);
+    const startDateTime = new Date(year, month - 1, day, h, m, 0, 0);
+
+    await db.insert(availableSlotsTable).values({
+      tutorId: tutors[0].id,
+      startTime: startDateTime,
+      duration: data.duration,
+      sessionType: data.sessionType,
+      location: data.location,
+    });
+
+    return {message: "Available slot created successfully", status: 200};
+  } catch (error) {
+    console.error("Failed to create available slot:", error);
+    return {message: "Failed to create available slot", status: 500};
+  }
+};
+
+export const deleteAvailableSlot = async (slotId: number) => {
+  const {userId} = await auth();
+  if (!userId) return {message: "Unauthorized", status: 401};
+
+  try {
+    const tutors = await db
+      .select({id: tutorsTable.id})
+      .from(tutorsTable)
+      .where(eq(tutorsTable.clerkId, userId))
+      .limit(1);
+
+    if (tutors.length === 0) return {message: "Tutor not found", status: 404};
+
+    const deleted = await db
+      .delete(availableSlotsTable)
+      .where(and(eq(availableSlotsTable.id, slotId), eq(availableSlotsTable.tutorId, tutors[0].id)))
+      .returning({id: availableSlotsTable.id});
+
+    if (deleted.length === 0) return {message: "Slot not found or unauthorized", status: 404};
+
+    return {message: "Available slot deleted", status: 200};
+  } catch (error) {
+    console.error("Failed to delete available slot:", error);
+    return {message: "Failed to delete available slot", status: 500};
+  }
+};
+
+export const getAvailableSlots = async () => {
+  const {userId} = await auth();
+  if (!userId) return {data: [], status: 401};
+
+  try {
+    const data = await db
+      .select({
+        id: availableSlotsTable.id,
+        tutorId: availableSlotsTable.tutorId,
+        startTime: availableSlotsTable.startTime,
+        duration: availableSlotsTable.duration,
+        sessionType: availableSlotsTable.sessionType,
+        location: availableSlotsTable.location,
+      })
+      .from(availableSlotsTable)
+      .innerJoin(tutorsTable, eq(tutorsTable.id, availableSlotsTable.tutorId))
+      .where(eq(tutorsTable.clerkId, userId));
+
+    return {data, status: 200};
+  } catch (error) {
+    console.error("Error fetching available slots:", error);
+    return {data: [], status: 500};
   }
 };

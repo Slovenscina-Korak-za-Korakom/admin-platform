@@ -11,13 +11,15 @@ import {
 import ScheduleBuilder from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import Calendar from "@/components/calendar/calendar";
 import SessionScheduler from "@/app/(protected)/my-schedule/_components/session-scheduler";
-import {SessionData} from "@/components/calendar/types";
+import {SessionData, AvailableSlotData} from "@/components/calendar/types";
 
 const TimeblockTabs = ({
                          data,
+                         availableSlots,
                          initialTab,
                        }: {
   data: SessionData[];
+  availableSlots: AvailableSlotData[];
   initialTab?: string;
 }) => {
   const router = useRouter();
@@ -52,7 +54,7 @@ const TimeblockTabs = ({
       </TabsList>
 
       <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto">
-        <Calendar data={data}/>
+        <Calendar data={data} availableSlots={availableSlots}/>
       </TabsContent>
 
       <TabsContent value="templates" className="flex-1 min-h-0 overflow-y-auto">
@@ -61,7 +63,7 @@ const TimeblockTabs = ({
       </TabsContent>
 
       <TabsContent value="add-event" className="flex-1 min-h-0 overflow-y-auto">
-        <SessionScheduler data={data}/>
+        <SessionScheduler data={data} availableSlots={availableSlots}/>
       </TabsContent>
     </Tabs>
   );

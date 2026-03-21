@@ -1,10 +1,10 @@
 import TimeblockTabs from "@/app/(protected)/my-schedule/_components/timeblock-tabs";
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
-import { SessionData } from "@/components/calendar/types";
+import { SessionData, AvailableSlotData } from "@/components/calendar/types";
 import { checkTutorActivation } from "@/actions/admin-actions";
 import { ActivationWrapper } from "@/app/(protected)/my-schedule/_components/activation-wrapper";
-import { getScheduleData, getAcceptedRegulars, getCancelledSessions } from "@/actions/timeblocks";
+import { getScheduleData, getAcceptedRegulars, getCancelledSessions, getAvailableSlots } from "@/actions/timeblocks";
 import { fromZonedTime } from "date-fns-tz";
 
 type SearchParams = {
@@ -104,10 +104,11 @@ export default async function TimeblocksPage({
   const params = await searchParams;
   const isActivated = (await checkTutorActivation(userId)) as boolean;
 
-  const [scheduleResult, regularsResult, cancelledResult] = await Promise.all([
+  const [scheduleResult, regularsResult, cancelledResult, availableSlotsResult] = await Promise.all([
     getScheduleData(),
     getAcceptedRegulars(),
     getCancelledSessions(),
+    getAvailableSlots(),
   ]);
 
   const timeblocksData = (scheduleResult.data || []) as SessionData[];
@@ -115,6 +116,7 @@ export default async function TimeblocksPage({
   const cancelledSessions = cancelledResult.data || [];
   const recurringEvents = generateRecurringEvents(acceptedRegulars, cancelledSessions);
   const data = [...timeblocksData, ...recurringEvents];
+  const availableSlots = (availableSlotsResult.data || []) as AvailableSlotData[];
 
   return (
     <div className="flex flex-col flex-1 min-h-0 p-5 space-y-6 w-full h-full">
@@ -129,7 +131,7 @@ export default async function TimeblocksPage({
           </p>
         </div>
       </div>
-      <TimeblockTabs data={data} initialTab={params.tab} />
+      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} />
     </div>
   );
 }

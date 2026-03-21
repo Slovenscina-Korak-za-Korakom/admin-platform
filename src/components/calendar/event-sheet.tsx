@@ -51,14 +51,18 @@ type EventSheetProps = {
   isEventSheetOpen: boolean;
   onOpenChange: (open: boolean) => void;
   selectedSession: (SessionData & {studentInfo: StudentInfo | null}) | null;
+  slotId?: number | null;
+  onDeleteSlot?: (slotId: number) => Promise<{message: string; status: number}>;
 };
 
-export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: event}: EventSheetProps) => {
+export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: event, slotId, onDeleteSlot}: EventSheetProps) => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [deletingSlot, setDeletingSlot] = useState(false);
   const router = useRouter();
   const student = event?.studentInfo ?? null;
+  const isAvailableSlot = event?.status === "available";
   const isRegularsSession = event?.sessionType === "regular";
   const isFutureSession = event ? new Date(event.startTime) > new Date() : false;
 
@@ -74,7 +78,20 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
     ? student.name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()
     : "?";
 
-  const showFooter = (isRegularsSession && isFutureSession) || (event?.status === "booked" && isFutureSession && !isRegularsSession);
+  const showFooter = isAvailableSlot || (isRegularsSession && isFutureSession) || (event?.status === "booked" && isFutureSession && !isRegularsSession);
+
+  const onDeleteAvailableSlot = () => {
+    if (!slotId || !onDeleteSlot) return;
+    setDeletingSlot(true);
+    startTransition(async () => {
+      const result = await onDeleteSlot(slotId);
+      setDeletingSlot(false);
+      if (result.status === 200) {
+        router.refresh();
+        onOpenChange(false);
+      }
+    });
+  };
 
   const onCancelSession = () => {
     if (!event?.id) return;
@@ -126,7 +143,7 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
 
               <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">Session</p>
               <h2 className="text-white text-xl font-bold leading-tight mb-3">
-                {student?.name || "Unknown student"}
+                {isAvailableSlot ? "Available" : (student?.name || "Unknown student")}
               </h2>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -234,7 +251,17 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
           {showFooter && event && (
             <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-muted/20">
               <div className="flex gap-2">
-                {isRegularsSession ? (
+                {isAvailableSlot ? (
+                  <button
+                    type="button"
+                    disabled={deletingSlot}
+                    className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={onDeleteAvailableSlot}
+                  >
+                    <IconTrash className="h-4 w-4"/>
+                    {deletingSlot ? "Removing..." : "Remove Slot"}
+                  </button>
+                ) : isRegularsSession ? (
                   <>
                     <button
                       type="button"
