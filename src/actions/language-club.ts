@@ -6,15 +6,15 @@ import {langClubBookingsTable, langClubTable} from "@/db/schema";
 import {clerkClient} from "@clerk/nextjs/server";
 import {eq, ilike} from "drizzle-orm";
 import z from "zod";
+import {fromZonedTime} from "date-fns-tz";
 
 export async function addEvent(values: z.infer<typeof eventSchema>) {
-  const formattedDate =
-    values.date.split("T")[0] + "T" + values.time + ":00.000+02:00";
+  const date = fromZonedTime(`${values.date}T${values.time}:00`, values.timezone);
   try {
     await db.insert(langClubTable).values({
       theme: values.theme,
       tutor: values.tutor,
-      date: new Date(formattedDate),
+      date,
       description: values.description,
       price: values.price,
       level: values.level,
@@ -36,21 +36,14 @@ export async function editEvent(
   values: z.infer<typeof eventSchema>,
   id: number
 ) {
-  let time: string;
-  // If the time is an ISO string, parse and format it
-  if (values.time.includes("T")) {
-    time = values.time.split("T")[1];
-  } else {
-    time = values.time + ":00.000+02:00";
-  }
-  const formattedDate = values.date.split("T")[0] + "T" + time;
+  const date = fromZonedTime(`${values.date}T${values.time}:00`, values.timezone);
   try {
     await db
       .update(langClubTable)
       .set({
         theme: values.theme,
         tutor: values.tutor,
-        date: new Date(formattedDate),
+        date,
         description: values.description,
         price: values.price,
         level: values.level,
@@ -79,10 +72,9 @@ export async function getBookingById(id: number) {
 
 export async function getBookingByTheme(theme: string) {
   try {
-    const booking = await db.query.langClubTable.findMany({
+    return await db.query.langClubTable.findMany({
       where: ilike(langClubTable.theme, `%${theme}%`),
     });
-    return booking;
   } catch (error) {
     console.error(error);
     return [];

@@ -22,7 +22,7 @@ export const tutorLevelEnum = pgEnum("tutor_level", ["junior", "senior"]);
 export const langClubTable = pgTable("lang_club", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   tutor: varchar({length: 255}).notNull(),
-  date: timestamp().notNull(),
+  date: timestamp({withTimezone: true}).notNull(),
   theme: varchar({length: 255}).notNull(),
   description: text(),
   level: text(),

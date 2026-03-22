@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { langClubTable } from "@/db/schema";
 import { ColumnDef } from "@tanstack/react-table";
-import { toZonedTime } from "date-fns-tz";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckedState } from "@radix-ui/react-checkbox";
 import { toast } from "sonner";
@@ -93,10 +92,7 @@ export const createColumns = (router: any): ColumnDef<Event>[] => [
     },
     cell: ({ row }) => {
       const date = row.getValue("date") as Date;
-      const formatted = toZonedTime(
-        date,
-        "Europe/Ljubljana"
-      ).toLocaleDateString("en-UK", {
+      const formatted = new Date(date).toLocaleString("en-GB", {
         year: "numeric",
         month: "long",
         day: "numeric",

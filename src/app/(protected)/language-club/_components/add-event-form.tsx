@@ -1,8 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   IconLanguage,
   IconMapPin,
@@ -12,6 +14,7 @@ import {
   IconCalendar,
   IconX,
   IconCurrencyEuro,
+  IconGlobe,
 } from "@tabler/icons-react";
 import {
   Form,
@@ -28,7 +31,7 @@ import { addEvent, editEvent } from "@/actions/language-club";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toZonedTime } from "date-fns-tz";
+import { formatInTimeZone } from "date-fns-tz";
 import { Booking } from "../booking/_components/bookings";
 
 export const eventSchema = z.object({
@@ -42,6 +45,7 @@ export const eventSchema = z.object({
   duration: z.string().min(1, { message: "Duration is required." }),
   spots: z.string().min(1, { message: "Spots is required." }),
   location: z.string().min(1, { message: "Location is required." }),
+  timezone: z.string().min(1),
 });
 
 const AddEventForm = ({
@@ -54,16 +58,21 @@ const AddEventForm = ({
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const timezone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [],
+  );
+
   const form = useForm<z.infer<typeof eventSchema>>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       theme: booking?.theme || "",
       tutor: booking?.tutor || "",
-      date: booking ? new Date(booking.date).toISOString().split("T")[0] : "",
+      date: booking
+        ? formatInTimeZone(new Date(booking.date), timezone, "yyyy-MM-dd")
+        : "",
       time: booking
-        ? toZonedTime(new Date(booking.date), "Europe/Ljubljana")
-            .toTimeString()
-            .slice(0, 5)
+        ? formatInTimeZone(new Date(booking.date), timezone, "HH:mm")
         : "",
       description: booking?.description || "",
       price: booking?.price.toString() || "",
@@ -71,6 +80,7 @@ const AddEventForm = ({
       duration: booking?.duration?.toString() || "",
       spots: booking?.maxBooked?.toString() || "",
       location: booking?.location || "",
+      timezone,
     },
   });
 
@@ -99,10 +109,7 @@ const AddEventForm = ({
   };
 
   const formattedDate = date
-    ? toZonedTime(new Date(date), "Europe/Ljubljana").toLocaleDateString(
-        "sl-SI",
-        { year: "numeric", month: "long", day: "numeric" }
-      )
+    ? formatInTimeZone(new Date(date), timezone, "d. MMMM yyyy")
     : null;
 
   const priceNum = parseFloat(price);
@@ -299,10 +306,9 @@ const AddEventForm = ({
                         Date
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type="date"
-                          className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        <DatePicker
+                          value={field.value}
+                          onChange={field.onChange}
                         />
                       </FormControl>
                       <FormMessage />
@@ -318,10 +324,9 @@ const AddEventForm = ({
                         Time
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type="time"
-                          className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30"
+                        <TimePicker
+                          value={field.value}
+                          onChange={field.onChange}
                         />
                       </FormControl>
                       <FormMessage />
@@ -329,6 +334,10 @@ const AddEventForm = ({
                   )}
                 />
               </div>
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground/50 -mt-2 pl-0.5">
+                <IconGlobe size={10} />
+                {timezone}
+              </p>
 
               <FormField
                 control={form.control}
