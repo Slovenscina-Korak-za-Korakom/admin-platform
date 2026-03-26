@@ -1,6 +1,6 @@
-# Slovene Step by Step - Admin Panel
+# Slovenščina Korak za Korkom - Admin Panel
 
-A modern, feature-rich admin dashboard for managing the **Slovenščina Korak za Korakom** (Slovene Step by Step) language
+A modern, feature-rich admin dashboard for managing the **Slovenščina Korak za Korakom** (Slovenščina Korak za Korkom) language
 learning platform. Built for tutors and administrators to efficiently manage tutoring sessions, language club events,
 team scheduling, and student bookings.
 

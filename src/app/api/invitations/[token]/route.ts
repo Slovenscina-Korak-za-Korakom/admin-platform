@@ -10,7 +10,7 @@ function htmlResponse(title: string, message: string, status: number) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Slovene Step by Step</title>
+  <title>${title} - Slovenščina Korak za Korkom</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
