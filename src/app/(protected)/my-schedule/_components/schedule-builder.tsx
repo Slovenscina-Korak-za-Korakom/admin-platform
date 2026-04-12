@@ -22,6 +22,7 @@ import {toast} from "sonner";
 import {createSchedule, getUserSchedule, getStudents, removeRegularScheduleBySlot} from "@/actions/timeblocks";
 import type {Student} from "./schedule-sheet";
 import "@/components/calendar/calendar-styles.css";
+import {useCalendarResize} from "@/hooks/use-calendar-resize";
 
 interface TimeSlot {
   id: string;
@@ -66,6 +67,7 @@ const getDefaultColorForSessionType = (sessionType: string): string =>
 
 const ScheduleBuilder = () => {
   const calendarRef = useRef<FullCalendar>(null);
+  const containerRef = useCalendarResize(calendarRef);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
@@ -656,7 +658,7 @@ const ScheduleBuilder = () => {
     : `${totalMinutes}m`;
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full flex flex-col">
+    <div className="h-full w-full flex flex-col">
 
       {/* ── Header bar ── */}
       <div className="shrink-0 px-5 py-3 border-b border-border/60 flex items-center gap-3 bg-background">
@@ -720,7 +722,7 @@ const ScheduleBuilder = () => {
       </div>
 
       {/* ── Calendar area ── */}
-      <div className="flex-1 relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden">
 
         {/* Loading overlay */}
         {isLoading && (

@@ -4,6 +4,7 @@ import {SidebarInset, SidebarProvider} from "@/components/ui/sidebar";
 import React from "react";
 import {currentUser} from "@clerk/nextjs/server";
 import {notFound} from "next/navigation";
+import {cookies} from "next/headers";
 
 const ProtectedLayout = async ({children}: { children: React.ReactNode }) => {
 
@@ -19,8 +20,13 @@ const ProtectedLayout = async ({children}: { children: React.ReactNode }) => {
     throw notFound();
   }
 
+  const cookieStore = await cookies();
+  const sidebarCookie = cookieStore.get("sidebar_state")?.value;
+  const defaultSidebarOpen = sidebarCookie !== undefined ? sidebarCookie === "true" : true;
+
   return (
     <SidebarProvider
+      defaultOpen={defaultSidebarOpen}
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",

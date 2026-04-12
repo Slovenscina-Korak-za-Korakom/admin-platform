@@ -12,6 +12,7 @@ import { DateSelectArg } from "@fullcalendar/core";
 import { CalendarControls } from "@/components/calendar/calendar-controls";
 import { SessionData } from "@/components/calendar/types";
 import "@/components/calendar/calendar-styles.css";
+import {useCalendarResize} from "@/hooks/use-calendar-resize";
 import {
   Sheet,
   SheetContent,
@@ -133,6 +134,7 @@ interface SessionSchedulerProps {
 
 const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
   const calendarRef = useRef<FullCalendar>(null);
+  const containerRef = useCalendarResize(calendarRef);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -360,7 +362,7 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full flex flex-col">
+    <div className="h-full w-full flex flex-col">
 
       {/* ── Header ── */}
       <div className="shrink-0 px-5 py-3 border-b border-border/60 flex items-center gap-3 bg-background">
@@ -395,7 +397,7 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
       </div>
 
       {/* ── Calendar ── */}
-      <div className="flex-1 relative overflow-hidden px-5 pb-4">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden px-5 pb-4">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}

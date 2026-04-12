@@ -2,6 +2,8 @@
 "use client";
 import {useState, useRef, useEffect, useCallback} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
+import {IconCalendar} from "@tabler/icons-react";
+import {useCalendarResize} from "@/hooks/use-calendar-resize";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -53,6 +55,7 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
   >({});
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
+  const containerRef = useCalendarResize(calendarRef);
 
   // Fetch student names for all unique studentIds
   useEffect(() => {
@@ -326,7 +329,23 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-shrink-0">
+      {/* Header */}
+      <div className="shrink-0 px-5 py-3 border-b border-border/60 flex items-center gap-3 bg-background">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+            style={{background: 'var(--sidebar-icon-gradient)'}}
+          >
+            <IconCalendar className="h-5 w-5 text-white"/>
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-foreground leading-tight">Calendar View</h1>
+            <p className="text-xs text-muted-foreground leading-tight">Your upcoming sessions</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 px-5 pt-3">
         <CalendarControls
           calendarTitle={calendarTitle}
           setShowWeekends={setShowWeekends}
@@ -342,7 +361,7 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
       </div>
 
       {/* FullCalendar Component */}
-      <div className="h-full w-full">
+      <div ref={containerRef} className="flex-1 min-h-0 w-full px-5 pb-4">
         <FullCalendar
           ref={calendarRef}
           plugins={[
