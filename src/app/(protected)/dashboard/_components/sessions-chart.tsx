@@ -91,7 +91,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
 
 
   return (
-    <Card className="shadow-sm border border-border/60">
+    <Card className="shadow-sm border border-border/50">
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -112,7 +112,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
                   key={m}
                   onClick={() => setMetric(m)}
                   className={cn(
-                    "px-3 py-1.5 capitalize transition-colors",
+                    "cursor-pointer px-3 py-1.5 capitalize transition-colors",
                     i > 0 && "border-l border-border",
                     metric === m
                       ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
@@ -159,7 +159,8 @@ export function SessionsChart({data, regularData, activeFilter}: {
                 content={
                   <ChartTooltipContent
                     indicator="line"
-                    labelFormatter={(v: string) => {
+                    labelFormatter={(v) => {
+                      if (typeof v !== "string") return v;
                       const [y, m, d] = v.split("-");
                       return `${d}.${m}.${y}`;
                     }}

@@ -193,7 +193,7 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
             key={r.value}
             onClick={() => handleFilterChange(r.value)}
             className={cn(
-              "px-3 py-1.5 transition-colors",
+              "cursor-pointer px-3 py-1.5 transition-colors",
               i > 0 && "border-l border-border",
               activeFilter === r.value
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
