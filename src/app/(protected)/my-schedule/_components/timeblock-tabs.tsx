@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, {useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {
@@ -24,9 +24,12 @@ const TimeblockTabs = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentTab = initialTab || searchParams.get("tab") || "calendar";
+  const [currentTab, setCurrentTab] = useState(
+    initialTab || searchParams.get("tab") || "calendar"
+  );
 
   const handleTabChange = (value: string) => {
+    setCurrentTab(value);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
     router.push(`/my-schedule?${params.toString()}`);
@@ -35,34 +38,43 @@ const TimeblockTabs = ({
   return (
     <Tabs
       value={currentTab}
+      defaultValue="calendar"
       onValueChange={handleTabChange}
       className="flex flex-col flex-1 min-h-0 space-y-4"
     >
-      <TabsList className="mx-auto flex-shrink-0">
-        <TabsTrigger value="calendar" className="cursor-pointer">
+      <TabsList className="mx-auto flex-shrink-0 h-auto p-1 gap-1 bg-muted/60 border border-border/50 rounded-xl">
+        <TabsTrigger
+          value="calendar"
+          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
+        >
           <IconCalendar className="mr-2 h-4 w-4"/>
           Calendar View
         </TabsTrigger>
-        <TabsTrigger value="templates" className="cursor-pointer">
+        <TabsTrigger
+          value="templates"
+          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
+        >
           <IconCalendarEvent className="mr-2 h-4 w-4"/>
           My Schedule
         </TabsTrigger>
-        <TabsTrigger value="add-event" className="cursor-pointer">
+        <TabsTrigger
+          value="add-event"
+          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
+        >
           <IconCalendarPlus className="mr-2 h-4 w-4"/>
           Add Event
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto">
+      <TabsContent value="calendar" className="flex-1 min-h-0 overflow-hidden">
         <Calendar data={data} availableSlots={availableSlots}/>
       </TabsContent>
 
-      <TabsContent value="templates" className="flex-1 min-h-0 overflow-y-auto">
+      <TabsContent value="templates" className="flex-1 min-h-0 overflow-hidden">
         <ScheduleBuilder/>
-        {/*<ScheduleTemplateBuilder />*/}
       </TabsContent>
 
-      <TabsContent value="add-event" className="flex-1 min-h-0 overflow-y-auto">
+      <TabsContent value="add-event" className="flex-1 min-h-0 overflow-hidden">
         <SessionScheduler data={data} availableSlots={availableSlots}/>
       </TabsContent>
     </Tabs>
