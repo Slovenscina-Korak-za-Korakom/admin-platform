@@ -13,6 +13,7 @@ interface DatePickerProps {
   value?: string; // "YYYY-MM-DD"
   onChange?: (value: string) => void;
   placeholder?: string;
+  dateFormat?: "short" | "long";
   disabled?: boolean;
   className?: string;
   disablePast?: boolean;
@@ -29,13 +30,17 @@ function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDisplay(dateStr: string): string {
+function formatDisplay(dateStr: string, format: "short" | "long"): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString("en-GB", {
+  return format === "long" ? date.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "long",
+    year: "numeric",
+  }) : date.toLocaleDateString("sl-SL", {
+    day: "numeric",
+    month: "numeric",
     year: "numeric",
   });
 }
@@ -72,6 +77,7 @@ export function DatePicker({
   value = "",
   onChange,
   placeholder = "Select date",
+  dateFormat = "short",
   disabled,
   className,
   disablePast = true,
@@ -114,7 +120,7 @@ export function DatePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-10 w-full items-center gap-2.5 rounded-xl border border-input bg-background px-3 text-sm",
+            "flex h-10 cursor-pointer w-full items-center gap-2.5 rounded-xl border border-input bg-background px-3 text-sm",
             "transition-colors hover:border-slate-300 dark:hover:border-slate-600",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30",
             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -123,7 +129,7 @@ export function DatePicker({
           )}
         >
           <IconCalendar size={15} className="shrink-0 text-muted-foreground" />
-          <span>{value ? formatDisplay(value) : placeholder}</span>
+          <span>{value ? formatDisplay(value, dateFormat) : placeholder}</span>
         </button>
       </PopoverTrigger>
 
@@ -180,10 +186,10 @@ export function DatePicker({
                 onClick={() => handleSelect(cell)}
                 disabled={past}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all duration-100",
+                  "flex cursor-pointer h-8 w-8 items-center justify-center rounded-full text-sm transition-all duration-100",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30",
                   sel &&
-                    "bg-gradient-to-br from-blue-500 to-violet-600 font-semibold text-white shadow-sm",
+                    "bg-gradient-to-br from-blue-200 to-blue-600 font-semibold text-white shadow-sm",
                   !sel &&
                     today_ &&
                     "font-semibold ring-1 ring-blue-400/60 text-blue-600 dark:text-blue-400 dark:ring-blue-400/40",
@@ -205,7 +211,7 @@ export function DatePicker({
         {value && (
           <div className="mt-3 border-t border-border pt-3">
             <p className="text-center text-xs text-muted-foreground">
-              {formatDisplay(value)}
+              {formatDisplay(value, dateFormat)}
             </p>
           </div>
         )}

@@ -126,7 +126,7 @@ export function TimePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-10 w-full items-center gap-2.5 rounded-xl border border-input bg-background px-3 text-sm",
+            "flex cursor-pointer h-10 w-full items-center gap-2.5 rounded-xl border border-input bg-background px-3 text-sm",
             "transition-colors hover:border-slate-300 dark:hover:border-slate-600",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30",
             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -152,7 +152,7 @@ export function TimePicker({
             className={cn(
               "rounded-lg px-3 py-1.5 text-4xl font-bold tracking-tight transition-all duration-150",
               step === "hours"
-                ? "bg-gradient-to-br from-blue-500 to-violet-600 text-white"
+                ? "bg-gradient-to-br from-blue-200 to-blue-600 text-white"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
@@ -170,7 +170,7 @@ export function TimePicker({
             className={cn(
               "rounded-lg px-3 py-1.5 text-4xl font-bold tracking-tight transition-all duration-150",
               step === "minutes"
-                ? "bg-gradient-to-br from-blue-500 to-violet-600 text-white"
+                ? "bg-gradient-to-br from-blue-200 to-blue-600 text-white"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
               tempHour === null && "cursor-not-allowed opacity-40",
             )}
@@ -187,7 +187,7 @@ export function TimePicker({
               className={cn(
                 "h-[3px] rounded-full transition-all duration-300",
                 step === s
-                  ? "w-6 bg-gradient-to-r from-blue-500 to-violet-600"
+                  ? "w-6 bg-gradient-to-r from-blue-200 to-blue-600"
                   : "w-3 bg-muted-foreground/20",
               )}
             />
@@ -216,8 +216,8 @@ export function TimePicker({
         >
           <defs>
             <radialGradient id="tp-sel" cx="30%" cy="30%" r="70%">
-              <stop offset="0%" stopColor="#3b82f6" />
-              <stop offset="100%" stopColor="#7c3aed" />
+              <stop offset="0%" stopColor="#a3b3ff" />
+              <stop offset="100%" stopColor="#155dfc" />
             </radialGradient>
           </defs>
 
