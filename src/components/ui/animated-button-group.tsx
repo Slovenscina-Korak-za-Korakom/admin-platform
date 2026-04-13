@@ -8,7 +8,7 @@ import {cn} from "@/lib/utils";
 interface ContextValue {
   value: string;
   onChange: (value: string) => void;
-  pillRect: { left: number; width: number; height: number };
+  pillRect: { left: number; top: number; width: number; height: number };
   activeHex: string;
   activeLightColor: string;
   registerItem: (
@@ -35,6 +35,7 @@ interface AnimatedButtonGroupProps {
   onChange: (value: string) => void;
   children: React.ReactNode;
   className?: string;
+  cols?: number;
 }
 
 function AnimatedButtonGroupRoot({
@@ -43,11 +44,12 @@ function AnimatedButtonGroupRoot({
                                    onChange,
                                    children,
                                    className,
+                                   cols,
                                  }: AnimatedButtonGroupProps) {
   const refsMap = useRef<Map<string, HTMLButtonElement>>(new Map());
   const colorsMap = useRef<Map<string, { hex: string; lightColor: string }>>(new Map());
 
-  const [pillRect, setPillRect] = useState({left: 0, width: 0, height: 0});
+  const [pillRect, setPillRect] = useState({left: 0, top: 0, width: 0, height: 0});
   const [activeHex, setActiveHex] = useState("#000");
   const [activeLightColor, setActiveLightColor] = useState("transparent");
 
@@ -63,30 +65,32 @@ function AnimatedButtonGroupRoot({
   useEffect(() => {
     const btn = refsMap.current.get(value);
     const colors = colorsMap.current.get(value);
-    if (btn) setPillRect({left: btn.offsetLeft, width: btn.offsetWidth, height: btn.offsetHeight});
+    if (btn) setPillRect({left: btn.offsetLeft, top: btn.offsetTop, width: btn.offsetWidth, height: btn.offsetHeight});
     if (colors) {
       setActiveHex(colors.hex);
       setActiveLightColor(colors.lightColor);
     }
   }, [value]);
 
+  const gridStyle: React.CSSProperties = cols
+    ? {gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: "0.5rem"}
+    : {gridAutoFlow: "column", gridAutoColumns: "1fr", gap: "0.5rem"};
+
   return (
     <Context.Provider value={{value, onChange, pillRect, activeHex, activeLightColor, registerItem}}>
-      <div
-        className={cn("relative grid", className)}
-        style={{gridAutoFlow: "column", gridAutoColumns: "1fr", gap: "0.5rem"}}
-      >
+      <div className={cn("relative grid", className)} style={gridStyle}>
         {/* Sliding pill */}
         <div
-          className="absolute top-0 rounded-xl pointer-events-none"
+          className="absolute rounded-xl pointer-events-none"
           style={{
             left: pillRect.left,
+            top: pillRect.top,
             width: pillRect.width,
             height: pillRect.height || "100%",
             backgroundColor: activeLightColor,
             border: `1.5px solid ${activeHex}`,
             transition:
-              "left 420ms cubic-bezier(0.34,1.2,0.64,1), background-color 220ms ease, border-color 220ms ease",
+              "left 420ms cubic-bezier(0.34,1.2,0.64,1), top 420ms cubic-bezier(0.34,1.2,0.64,1), background-color 220ms ease, border-color 220ms ease",
             zIndex: 0,
           }}
         >
@@ -135,13 +139,15 @@ function AnimatedButtonGroupItem({
 
   const btn = localRef.current;
   const btnLeft = btn?.offsetLeft ?? 0;
+  const btnTop = btn?.offsetTop ?? 0;
   const btnWidth = btn?.offsetWidth ?? 0;
+  const btnHeight = btn?.offsetHeight ?? 0;
   const {pillRect} = ctx;
+
   const clipLeft = Math.max(0, pillRect.left - btnLeft);
-  const clipRight = Math.max(
-    0,
-    btnWidth - Math.min(btnWidth, pillRect.left + pillRect.width - btnLeft)
-  );
+  const clipRight = Math.max(0, btnWidth - Math.min(btnWidth, pillRect.left + pillRect.width - btnLeft));
+  const clipTop = Math.max(0, pillRect.top - btnTop);
+  const clipBottom = Math.max(0, btnHeight - Math.min(btnHeight, pillRect.top + pillRect.height - btnTop));
 
   return (
     <button
@@ -164,7 +170,7 @@ function AnimatedButtonGroupItem({
         className="absolute inset-0 flex items-center justify-center gap-2 font-semibold select-none pointer-events-none"
         style={{
           color: hex,
-          clipPath: `inset(0 ${clipRight}px 0 ${clipLeft}px round 10px)`,
+          clipPath: `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px round 10px)`,
           transition: "clip-path 420ms cubic-bezier(0.34,1.2,0.64,1)",
         }}
       >

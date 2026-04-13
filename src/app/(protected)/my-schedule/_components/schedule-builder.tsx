@@ -23,6 +23,8 @@ import {createSchedule, getUserSchedule, getStudents, removeRegularScheduleBySlo
 import type {Student} from "./schedule-sheet";
 import "@/components/calendar/calendar-styles.css";
 import {useCalendarResize} from "@/hooks/use-calendar-resize";
+import {Badge} from "@/components/ui/badge";
+import {formatTimezone} from "@/components/ui/timezone-flag";
 
 interface TimeSlot {
   id: string;
@@ -681,19 +683,25 @@ const ScheduleBuilder = () => {
           <div className="flex items-center gap-1.5 ml-2">
             {totalSlots > 0 && (
               <>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
+                <Badge
+                  variant="outline"
+                  className="text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50 tabular-nums">
                   {totalSlots} {totalSlots === 1 ? "session" : "sessions"}
-                </span>
+                </Badge>
                 {totalMinutes > 0 && (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50 tabular-nums">
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50 tabular-nums">
                     {totalHoursDisplay}
-                  </span>
+                  </Badge>
                 )}
               </>
             )}
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700/50">
-              {timezone}
-            </span>
+            <Badge
+              variant="outline"
+              className="text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700/50">
+              {formatTimezone(timezone)}
+            </Badge>
           </div>
         )}
 

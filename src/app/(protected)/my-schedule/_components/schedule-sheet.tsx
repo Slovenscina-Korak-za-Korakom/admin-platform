@@ -1,40 +1,24 @@
 "use client";
 
 import React, {useState} from "react";
+import {Sheet, SheetContent, SheetDescription, SheetTitle,} from "@/components/ui/sheet";
+import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
+import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,} from "@/components/ui/command";
 import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {Button} from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  IconTrash,
+  IconBuilding,
+  IconCalendar,
   IconCheck,
   IconClock,
-  IconVideo,
-  IconBuilding,
-  IconUser,
   IconSelector,
-  IconCalendar,
+  IconTrash,
+  IconUser,
+  IconVideo,
   IconX,
 } from "@tabler/icons-react";
 import {calculateEndTime} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
-import {cn} from "@/lib/utils";
-import {SESSION_COLORS, getSessionColor} from "@/lib/session-colors";
+import {getSessionColor, SESSION_COLORS} from "@/lib/session-colors";
+import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 
 export interface Student {
   clerkId: string;
@@ -81,21 +65,8 @@ const SESSION_TYPE_CONFIG = {
   },
 };
 
-const LOCATION_CONFIG = {
-  online: {label: "Online", icon: IconVideo},
-  classroom: {label: "Classroom", icon: IconBuilding},
-};
-
 const getDefaultColorForSessionType = (sessionType: string): string =>
   getSessionColor(sessionType);
-
-const formatDuration = (minutes: number): string => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-};
 
 interface CalendarEvent {
   id: string;
@@ -149,18 +120,18 @@ interface ScheduleSheetProps {
 }
 
 export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
-  isOpen,
-  onOpenChange,
-  editingEvent,
-  selectedSlot,
-  formData,
-  onFormDataChange,
-  onSave,
-  onDelete,
-  onCancel,
-  getDayLabel,
-  students,
-}) => {
+                                                              isOpen,
+                                                              onOpenChange,
+                                                              editingEvent,
+                                                              selectedSlot,
+                                                              formData,
+                                                              onFormDataChange,
+                                                              onSave,
+                                                              onDelete,
+                                                              onCancel,
+                                                              getDayLabel,
+                                                              students,
+                                                            }) => {
   const [studentSelectOpen, setStudentSelectOpen] = useState(false);
 
   const sessionConfig =
@@ -182,9 +153,9 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetTitle className="sr-only">{editingEvent ? "Edit Session" : "New Session"}</SheetTitle>
-      <SheetDescription className="sr-only">Configure session details</SheetDescription>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
+      <SheetContent showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
+        <SheetTitle className="sr-only">{editingEvent ? "Edit Session" : "New Session"}</SheetTitle>
+        <SheetDescription className="sr-only">Configure session details</SheetDescription>
 
         {/* ── Gradient Header ── */}
         <div
@@ -200,38 +171,37 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
               <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
                 <IconCalendar className="h-5 w-5 text-white"/>
               </div>
+              <div className="flex flex-col items-center">
+                <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
+                  {editingEvent ? "Edit" : "New"}
+                </p>
+                <h2 className="text-white text-2xl font-bold leading-tight mb-4">
+                  Session
+                </h2>
+              </div>
               <button
                 onClick={onCancel}
-                className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 cursor-pointer rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <IconX className="h-4 w-4"/>
               </button>
             </div>
 
-            <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
-              {editingEvent ? "Edit" : "New"}
-            </p>
-            <h2 className="text-white text-2xl font-bold leading-tight mb-4">
-              Session
-            </h2>
 
             {/* Time pill */}
             {selectedSlot && (
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                  <span className="text-white text-sm font-semibold">
+                    Every {getDayLabel(selectedSlot.dayOfWeek)}
+                  </span>
+                </div>
+                <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
                   <IconClock className="h-3.5 w-3.5 text-white/70"/>
                   <span className="text-white text-sm font-semibold tabular-nums">
                     {selectedSlot.startTime}
                     {endTime && <span className="text-white/55 font-normal"> – {endTime}</span>}
                   </span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
-                  <span className="text-white text-sm font-semibold">
-                    {getDayLabel(selectedSlot.dayOfWeek)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-white/12 rounded-lg px-3 py-2">
-                  <span className="text-white/70 text-sm">{formatDuration(formData.duration)}</span>
                 </div>
               </div>
             )}
@@ -246,36 +216,16 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
               Session Type
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(SESSION_TYPE_CONFIG) as [string, typeof SESSION_TYPE_CONFIG.individual][]).map(([key, cfg]) => {
-                const active = formData.sessionType === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handleSessionTypeChange(key)}
-                    className="relative rounded-xl px-3 py-3 text-center transition-all"
-                    style={{
-                      backgroundColor: active ? cfg.lightColor : "transparent",
-                      border: `1.5px solid ${active ? cfg.hex : "hsl(var(--border))"}`,
-                    }}
-                  >
-                    {active && (
-                      <div
-                        className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
-                        style={{backgroundColor: cfg.hex}}
-                      />
-                    )}
-                    <span
-                      className="text-[13px] font-semibold block"
-                      style={{color: active ? cfg.hex : undefined}}
-                    >
-                      {cfg.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <AnimatedButtonGroup showDot value={formData.sessionType} cols={2} onChange={(v) => {
+              const key = v as keyof typeof SESSION_TYPE_CONFIG;
+              handleSessionTypeChange(key)
+            }}>
+              {(Object.entries(SESSION_TYPE_CONFIG) as [string, typeof SESSION_TYPE_CONFIG.individual][]).map(([key, cfg]) => (
+                <AnimatedButtonGroupItem key={key} value={key} hex={cfg.hex} lightColor={cfg.lightColor}>
+                  {cfg.label}
+                </AnimatedButtonGroupItem>
+              ))}
+            </AnimatedButtonGroup>
             <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
               {sessionConfig.description}
             </p>
@@ -284,68 +234,97 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
           {/* Student selection (regulars only) */}
           {formData.sessionType === "regular" && (
             <div className="px-5 py-4 border-b border-border/60">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                Student <span className="text-destructive normal-case tracking-normal font-normal">*</span>
-              </p>
+              <div className="inline-flex justify-between w-full">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                  Student <span className="text-destructive normal-case tracking-normal font-normal">*</span>
+                </p>
+                {selectedStudent && (
+                  <button
+                    type="button"
+                    onClick={() => onFormDataChange({...formData, studentClerkId: "", email: ""})}
+                    className="cursor-pointer mt-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground flex items-center gap-1 transition-colors"
+                  >
+                    <IconX className="h-3 w-3"/> Clear
+                  </button>
+                )}
+              </div>
               <Popover open={studentSelectOpen} onOpenChange={setStudentSelectOpen}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="w-full flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm hover:border-border/80 transition-colors bg-background"
+                    className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm hover:border-border/80 transition-colors bg-background"
                   >
                     {selectedStudent ? (
                       <span className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                          style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
-                        >
-                          {selectedStudent.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="min-w-0">
-                          <span className="font-medium block truncate">{selectedStudent.name}</span>
-                          <span className="text-xs text-muted-foreground truncate block">{selectedStudent.email}</span>
+                        <Avatar>
+                          <AvatarImage src={selectedStudent.image} alt={`${selectedStudent.name}'s profile picture`}/>
+                          <AvatarFallback
+                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-semibold"
+                            style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+                          >
+                            {selectedStudent.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="min-w-0 flex flex-col items-start">
+                          <span className="text-sm font-medium text-foreground truncate">{selectedStudent.name}</span>
+                          <span
+                            className="text-[11px] text-muted-foreground truncate leading-tight">{selectedStudent.email}</span>
                         </span>
                       </span>
                     ) : (
                       <span className="flex items-center gap-2 text-muted-foreground">
-                        <IconUser className="h-4 w-4"/>
+                        <IconUser className="h-3.5 w-3.5"/>
                         <span>Select a student…</span>
                       </span>
                     )}
                     <IconSelector className="h-4 w-4 text-muted-foreground shrink-0 ml-2"/>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="center" side="bottom">
+                  <Command className="w-80">
                     <CommandInput placeholder="Search students…"/>
                     <CommandList>
-                      <CommandEmpty>No students found.</CommandEmpty>
+                      <CommandEmpty>
+                        <div className="flex flex-row items-center px-4 gap-1.5">
+                          <IconUser size={16} className="text-muted-foreground/40"/>
+                          <p className="text-sm text-muted-foreground">No students found</p>
+                        </div>
+                      </CommandEmpty>
                       <CommandGroup>
-                        {students.map((student) => (
-                          <CommandItem
-                            key={student.clerkId}
-                            value={`${student.name} ${student.email}`}
-                            onSelect={() => {
-                              onFormDataChange({
-                                ...formData,
-                                email: student.email,
-                                studentClerkId: student.clerkId,
-                              });
-                              setStudentSelectOpen(false);
-                            }}
-                          >
-                            <IconCheck
-                              className={cn(
-                                "mr-2 h-4 w-4 shrink-0",
-                                formData.studentClerkId === student.clerkId ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium truncate">{student.name}</span>
-                              <span className="text-xs text-muted-foreground truncate">{student.email}</span>
-                            </div>
-                          </CommandItem>
-                        ))}
+                        {students.map((student) => {
+                          const isSelected = formData.studentClerkId === student.clerkId;
+                          return (
+                            <CommandItem
+                              key={student.clerkId}
+                              value={`${student.name} ${student.email}`}
+                              onSelect={() => {
+                                onFormDataChange({
+                                  ...formData,
+                                  email: student.email,
+                                  studentClerkId: student.clerkId,
+                                });
+                                setStudentSelectOpen(false);
+                              }}
+                              className="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
+                            >
+                              <Avatar>
+                                <AvatarImage src={student.image} alt={`${student.name}'s profile picture`}/>
+                                <AvatarFallback
+                                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-semibold"
+                                  style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+                                >
+                                  {student.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium truncate">{student.name}</span>
+                                <span
+                                  className="text-[11px] text-muted-foreground truncate leading-tight">{student.email}</span>
+                              </div>
+                              {isSelected && <IconCheck className="h-3.5 w-3.5 text-blue-500 shrink-0"/>}
+                            </CommandItem>
+                          )
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>
@@ -358,10 +337,12 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
               {/* Price per session */}
               <div className="mt-4">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                  Price per session <span className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span>
+                  Price per session <span
+                  className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span>
                 </p>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">€</span>
+                    <span
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">€</span>
                   <input
                     type="number"
                     min="0"
@@ -381,45 +362,26 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
               Location
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(LOCATION_CONFIG) as [string, typeof LOCATION_CONFIG.online][]).map(([key, cfg]) => {
-                const active = formData.location === key;
-                const Icon = cfg.icon;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => onFormDataChange({...formData, location: key})}
-                    className="flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
-                    style={{
-                      backgroundColor: active ? "rgba(37, 99, 235, 0.07)" : "transparent",
-                      borderColor: active ? "#2563eb" : "hsl(var(--border))",
-                      borderWidth: "1.5px",
-                    }}
-                  >
-                    <Icon
-                      className="h-4 w-4 shrink-0"
-                      style={{color: active ? "#2563eb" : undefined}}
-                    />
-                    <span
-                      className="text-sm font-medium"
-                      style={{color: active ? "#2563eb" : undefined}}
-                    >
-                      {cfg.label}
-                    </span>
-                    {active && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"/>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <AnimatedButtonGroup
+              value={formData.location}
+              onChange={(v) => onFormDataChange({...formData, location: v as "online" | "classroom"})}
+            >
+              <AnimatedButtonGroupItem value="online" hex="#0891b2" lightColor="rgba(8,145,178,0.07)">
+                <IconVideo className="h-3.5 w-3.5"/>
+                Online
+              </AnimatedButtonGroupItem>
+              <AnimatedButtonGroupItem value="classroom" hex="#7c3aed" lightColor="rgba(124,58,237,0.07)">
+                <IconBuilding className="h-3.5 w-3.5"/>
+                Classroom
+              </AnimatedButtonGroupItem>
+            </AnimatedButtonGroup>
           </div>
 
           {/* Notes */}
           <div className="px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              Notes <span className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span>
+              Notes <span
+              className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span>
             </p>
             <textarea
               value={formData.description}
@@ -438,25 +400,17 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
               <button
                 type="button"
                 onClick={onDelete}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
+                className="flex items-center cursor-pointer gap-1.5 px-3 py-2 rounded-lg text-sm text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
               >
                 <IconTrash className="h-3.5 w-3.5"/>
                 Delete
               </button>
             )}
             <div className="flex gap-2 ml-auto">
-              <Button
-                variant="outline"
-                onClick={onCancel}
-                type="button"
-                className="rounded-lg"
-              >
-                Cancel
-              </Button>
               <button
                 type="button"
                 onClick={onSave}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98]"
+                className="flex cursor-pointer items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
               >
                 <IconCheck className="h-4 w-4"/>

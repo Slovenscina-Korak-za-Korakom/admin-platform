@@ -878,9 +878,6 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
               <p className="text-xs text-destructive mb-3">{error}</p>
             )}
             <div className="flex items-center gap-2 justify-end">
-              <Button variant="outline" type="button" className="rounded-lg" onClick={closeSheet} disabled={isPending}>
-                Cancel
-              </Button>
               <button
                 type="button"
                 onClick={handleSave}

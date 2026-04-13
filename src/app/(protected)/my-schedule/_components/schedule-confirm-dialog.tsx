@@ -4,20 +4,21 @@ import React from "react";
 import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {
-  IconCheck,
-  IconCalendar,
-  IconClock,
-  IconVideo,
-  IconBuilding,
-  IconMail,
-  IconX,
   IconAlertTriangle,
+  IconBuilding,
+  IconCalendar,
+  IconCheck,
+  IconClock,
+  IconMail,
   IconPencil,
+  IconVideo,
+  IconX,
 } from "@tabler/icons-react";
 import {type CalendarEvent, type SlotDiff} from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import {SESSION_COLORS} from "@/lib/session-colors";
+import {Badge} from "@/components/ui/badge";
 
-export const getDstChangeInfo = (): {changing: boolean; date?: Date} => {
+export const getDstChangeInfo = (): { changing: boolean; date?: Date } => {
   const today = new Date();
   const todayOffset = today.getTimezoneOffset();
   for (let i = 1; i <= 7; i++) {
@@ -112,16 +113,16 @@ interface ScheduleConfirmDialogProps {
 }
 
 export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
-  isOpen,
-  onOpenChange,
-  daySchedules,
-  totalSlots,
-  onConfirm,
-  getDayLabel,
-  diff,
-  confirmedRemovals,
-  onToggleRemoval,
-}) => {
+                                                                              isOpen,
+                                                                              onOpenChange,
+                                                                              daySchedules,
+                                                                              totalSlots,
+                                                                              onConfirm,
+                                                                              getDayLabel,
+                                                                              diff,
+                                                                              confirmedRemovals,
+                                                                              onToggleRemoval,
+                                                                            }) => {
   const getModifiedFields = (before: CalendarEvent, after: CalendarEvent): string => {
     const changes: string[] = [];
     if (before.dayOfWeek !== after.dayOfWeek)
@@ -162,6 +163,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
+        showCloseButton={false}
         className={`
           ${diff ? "sm:max-w-[980px]" : "sm:max-w-[780px]"} p-0 gap-0 border-0 shadow-2xl rounded-2xl overflow-hidden
           flex flex-col sm:flex-row
@@ -284,7 +286,7 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
             </div>
             <button
               onClick={() => onOpenChange(false)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <IconX className="h-4 w-4"/>
             </button>
@@ -292,10 +294,15 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
 
           {/* DST warning */}
           {dstInfo.changing && dstInfo.date && (
-            <div className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <div
+              className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
               <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5"/>
               <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <span className="font-semibold">Clock change on {dstInfo.date.toLocaleDateString("en-GB", {weekday: "long", month: "long", day: "numeric"})}.</span>{" "}
+                <span className="font-semibold">Clock change on {dstInfo.date.toLocaleDateString("en-GB", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric"
+                })}.</span>{" "}
                 Times shown are based on your current UTC offset — sessions may shift by 1 hour after the change.
               </p>
             </div>
@@ -310,10 +317,10 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                   {/* Day label row */}
                   <div className="flex items-center gap-2.5 mb-3">
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                      style={{background: "linear-gradient(135deg, #3b82f6, #8b5cf6)"}}
+                      className="relative w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-foreground shrink-0"
                     >
                       {dayIdx + 1}
+                      <div className="absolute h-px w-2/3 bottom-0 left-1/2 -translate-x-1/2 bg-foreground"/>
                     </div>
                     <span className="text-sm font-semibold text-foreground">
                       {getDayLabel(schedule.day)}
@@ -369,30 +376,31 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
 
                           {/* Info column */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <IconClock className="h-3 w-3 shrink-0" style={{color: slotColor}}/>
-                              <span className="text-xs text-muted-foreground tabular-nums">
-                                {formatDuration(slot.duration)}
-                              </span>
-                            </div>
+                            {slot.email && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <IconMail size={12} className="text-muted-foreground shrink-0"/>
+                                <span className="text-[12px] text-muted-foreground truncate">
+                                  {slot.email}
+                                </span>
+                              </div>
+                            )}
                             {slot.description && (
                               <p className="text-xs text-muted-foreground/80 leading-relaxed truncate">
                                 {slot.description}
                               </p>
                             )}
-                            {slot.email && (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <IconMail className="h-3 w-3 text-muted-foreground/50 shrink-0"/>
-                                <span className="text-[11px] text-muted-foreground/70 truncate">
-                                  {slot.email}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <IconClock size={12} className="shrink-0" style={{color: slotColor}}/>
+                              <span className="text-[12px] text-muted-foreground tabular-nums">
+                                {formatDuration(slot.duration)}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Badges */}
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span
+                            <Badge
+                              variant="outline"
                               className="text-[11px] font-medium px-2 py-0.5 rounded-full"
                               style={{
                                 backgroundColor: `${slotColor}18`,
@@ -401,11 +409,14 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                               }}
                             >
                               {sessionConfig.label}
-                            </span>
-                            <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
-                              <LocationIcon className="h-3 w-3 shrink-0"/>
+                            </Badge>
+                            <Badge
+                              variant="secondary"
+                              className="bg-transparent"
+                            >
+                              <LocationIcon className="shrink-0"/>
                               {locationConfig.label}
-                            </span>
+                            </Badge>
                           </div>
                         </div>
                       );
@@ -430,17 +441,20 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
               </h3>
               <div className="flex items-center gap-1.5 mt-3">
                 {diff.added.length > 0 && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                  <span
+                    className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                     +{diff.added.length}
                   </span>
                 )}
                 {diff.removed.length > 0 && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
+                  <span
+                    className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
                     −{diff.removed.length}
                   </span>
                 )}
                 {diff.modified.length > 0 && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex items-center gap-0.5">
+                  <span
+                    className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex items-center gap-0.5">
                     <IconPencil className="h-2.5 w-2.5"/>{diff.modified.length}
                   </span>
                 )}
@@ -465,12 +479,14 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                 if (e.sessionType === "regular") {
                   const checked = confirmedRemovals?.has(e.id) ?? false;
                   return (
-                    <div key={e.id} className="px-4 py-2.5 bg-amber-50/60 dark:bg-amber-950/10 border-l-2 border-amber-400 dark:border-amber-600">
+                    <div key={e.id}
+                         className="px-4 py-2.5 bg-amber-50/60 dark:bg-amber-950/10 border-l-2 border-amber-400 dark:border-amber-600">
                       <div className="flex items-start gap-1.5">
                         <IconAlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5"/>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
+                            <span
+                              className="text-[11px] font-semibold text-foreground">{getDayLabel(e.dayOfWeek)}</span>
                             <span className="text-[11px] text-muted-foreground tabular-nums">{e.startTime}</span>
                           </div>
                           {e.email && (
@@ -483,7 +499,8 @@ export const ScheduleConfirmDialog: React.FC<ScheduleConfirmDialogProps> = ({
                               onChange={() => onToggleRemoval?.(e.id)}
                               className="w-3 h-3 accent-amber-500 cursor-pointer"
                             />
-                            <span className="text-[11px] text-amber-700 dark:text-amber-400 group-hover:text-amber-900 dark:group-hover:text-amber-300 leading-tight">
+                            <span
+                              className="text-[11px] text-amber-700 dark:text-amber-400 group-hover:text-amber-900 dark:group-hover:text-amber-300 leading-tight">
                               Notify student &amp; end recurring
                             </span>
                           </label>
