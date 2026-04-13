@@ -41,8 +41,17 @@ export interface AvailableSlotData {
   tutorId: number;
 }
 
+export interface StudentPreferences {
+  languageLevel?: string;
+  learningGoals?: string[];
+  preferredTutor?: number;
+  preferredSchedule?: string;
+}
+
 export interface StudentInfo {
   name: string | null;
   email: string;
   image: string;
+  languageLevel?: string | null;
+  preferences?: StudentPreferences | null;
 }

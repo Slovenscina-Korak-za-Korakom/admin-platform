@@ -29,7 +29,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import {createAvailableSlot, createOneTimeSession, getStudents} from "@/actions/timeblocks";
-import {getSessionColor} from "@/lib/session-colors";
+import {getSessionColor, hexToRgba} from "@/lib/session-colors";
 import type {Student} from "./schedule-sheet";
 import {DatePicker} from "@/components/ui/date-picker";
 import {TimePicker} from "@/components/ui/time-picker";
@@ -52,28 +52,28 @@ interface SessionFormData {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const SESSION_COLORS = {
-  individual: "#3b82f6",
-  group: "#8b5cf6",
-  test: "#f97316",
+  individual: getSessionColor("individual"),
+  group: getSessionColor("group"),
+  test: getSessionColor("test"),
 };
 
 const SESSION_TYPE_CONFIG = {
   individual: {
     label: "Individual",
-    hex: "#3b82f6",
-    lightColor: "rgba(59, 130, 246, 0.07)",
+    hex: SESSION_COLORS.individual,
+    lightColor: hexToRgba(SESSION_COLORS.individual,0.07),
     description: "One-on-one personalized sessions tailored to individual learning needs.",
   },
   group: {
     label: "Group",
-    hex: "#8b5cf6",
-    lightColor: "rgba(139, 92, 246, 0.07)",
+    hex: SESSION_COLORS.group,
+    lightColor: hexToRgba(SESSION_COLORS.group,0.07),
     description: "Interactive sessions with multiple participants for collaborative learning.",
   },
   test: {
     label: "Test",
-    hex: "#f97316",
-    lightColor: "rgba(249, 115, 22, 0.07)",
+    hex: SESSION_COLORS.test,
+    lightColor: hexToRgba(SESSION_COLORS.test,0.07),
     description: "A one-time trial session for new students to experience the teaching style.",
   },
 };

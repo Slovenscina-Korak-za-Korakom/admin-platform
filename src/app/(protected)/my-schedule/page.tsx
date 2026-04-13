@@ -121,16 +121,6 @@ export default async function TimeblocksPage({
   return (
     <div className="flex flex-col flex-1 min-h-0 p-5 space-y-6 w-full h-full">
       <ActivationWrapper isActivated={isActivated} />
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Schedule Planner
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your available teaching slots and recurring schedules
-          </p>
-        </div>
-      </div>
       <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} />
     </div>
   );

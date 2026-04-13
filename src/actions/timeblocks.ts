@@ -222,11 +222,22 @@ export const getStudentInfo = async (studentId: string) => {
   if (!user) {
     return {message: "User not found", status: 404};
   }
+  const meta = user.privateMetadata as {
+    preferences?: {
+      languageLevel?: string;
+      learningGoals?: string[];
+      preferredTutor?: number;
+      preferredSchedule?: string;
+    };
+  } | null;
+
   return {
     user: {
       name: user.fullName,
       email: user.emailAddresses[0].emailAddress,
       image: user.imageUrl,
+      languageLevel: meta?.preferences?.languageLevel ?? null,
+      preferences: meta?.preferences ?? null,
     },
     status: 200,
   };

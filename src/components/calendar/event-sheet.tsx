@@ -1,66 +1,74 @@
 "use client";
 
-import React, {useState, useTransition} from "react";
-import {Sheet, SheetContent, SheetTitle, SheetDescription} from "@/components/ui/sheet";
+import React, {useEffect, useMemo, useState, useTransition} from "react";
+import {Sheet, SheetContent, SheetDescription, SheetTitle} from "@/components/ui/sheet";
 import {
+  IconBrandZoom,
+  IconBuilding,
   IconCalendar,
   IconClock,
-  IconMail,
-  IconMapPin,
-  IconVideo,
-  IconBuilding,
-  IconX,
+  IconTarget,
   IconTrash,
+  IconVideo,
+  IconX,
 } from "@tabler/icons-react";
 import {SessionData, StudentInfo} from "@/components/calendar/types";
 import {CancelSessionDialog} from "./cancel-session-dialog";
 import {RemoveScheduleDialog} from "./remove-schedule-dialog";
-import Image from "next/image";
 import {cancelSession} from "@/actions/timeblocks";
 import {useRouter} from "next/navigation";
+import {getSessionColor, hexToRgba} from "@/lib/session-colors";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
+import {Button} from "@/components/ui/button";
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-const SESSION_TYPE_CONFIG: Record<string, {label: string; hex: string; lightColor: string; borderColor: string}> = {
-  individual: {label: "Individual", hex: "#3b82f6", lightColor: "rgba(59,130,246,0.08)", borderColor: "rgba(59,130,246,0.22)"},
-  group:      {label: "Group",      hex: "#8b5cf6", lightColor: "rgba(139,92,246,0.08)",  borderColor: "rgba(139,92,246,0.22)"},
-  regular:    {label: "Regular",    hex: "#ec4899", lightColor: "rgba(236,72,153,0.08)",  borderColor: "rgba(236,72,153,0.22)"},
-  test:       {label: "Test",       hex: "#F97315", lightColor: "rgba(236,72,153,0.08)",  borderColor: "rgba(236,72,153,0.22)"},
-};
-
-const STATUS_CONFIG: Record<string, {label: string; bg: string; text: string}> = {
-  booked:    {label: "Upcoming",  bg: "bg-emerald-100 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400"},
-  completed: {label: "Completed", bg: "bg-muted",                              text: "text-muted-foreground"},
-  cancelled: {label: "Cancelled", bg: "bg-red-100 dark:bg-red-950/40",         text: "text-red-700 dark:text-red-400"},
-};
 
 const fmt24 = (d: Date) =>
   `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 
-const fmtDate = (d: Date) =>
-  d.toLocaleDateString("en-GB", {weekday: "long", year: "numeric", month: "long", day: "numeric"});
+const fmtDateFull = (d: Date) =>
+  d.toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+
+const fmtToday = (d: Date = new Date()) =>
+  d.toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", year: "numeric"});
 
 const fmtDuration = (min: number) => {
   const h = Math.floor(min / 60), m = min % 60;
-  if (h === 0) return `${m}m`;
+  if (h === 0) return `${m} min`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+};
+
+const GOAL_LABELS: Record<string, { label: string; icon: string }> = {
+  "integration": {label: "Integration into the environment", icon: "🇸🇮"},
+  "national exam": {label: "National exam", icon: "📝"},
+  "school": {label: "Matura / NPZ / School", icon: "🎓"},
+  "speaking": {label: "Speaking Practice", icon: "💬"},
 };
 
 type EventSheetProps = {
   isEventSheetOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedSession: (SessionData & {studentInfo: StudentInfo | null}) | null;
+  selectedSession: (SessionData & { studentInfo: StudentInfo | null }) | null;
   slotId?: number | null;
-  onDeleteSlot?: (slotId: number) => Promise<{message: string; status: number}>;
+  onDeleteSlot?: (slotId: number) => Promise<{ message: string; status: number }>;
 };
 
-export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: event, slotId, onDeleteSlot}: EventSheetProps) => {
+
+export const EventSheet = ({
+                             isEventSheetOpen,
+                             onOpenChange,
+                             selectedSession: event,
+                             slotId,
+                             onDeleteSlot,
+                           }: EventSheetProps) => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [deletingSlot, setDeletingSlot] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const router = useRouter();
+
   const student = event?.studentInfo ?? null;
   const isAvailableSlot = event?.status === "available";
   const isRegularsSession = event?.sessionType === "regular";
@@ -69,16 +77,42 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
   const startTime = event ? new Date(event.startTime) : null;
   const endTime = startTime ? new Date(startTime.getTime() + (event?.duration ?? 0) * 60000) : null;
   const isPast = startTime ? startTime < new Date() : false;
-  const effectiveStatus = isPast && event?.status === "booked" ? "completed" : (event?.status ?? "booked");
-
-  const sessionCfg = SESSION_TYPE_CONFIG[event?.sessionType ?? "individual"] ?? SESSION_TYPE_CONFIG.individual;
-  const statusCfg = STATUS_CONFIG[effectiveStatus] ?? STATUS_CONFIG.booked;
 
   const initials = student?.name
     ? student.name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()
     : "?";
 
-  const showFooter = isAvailableSlot || (isRegularsSession && isFutureSession) || (event?.status === "booked" && isFutureSession && !isRegularsSession);
+  const showFooter =
+    isAvailableSlot ||
+    (isRegularsSession && isFutureSession) ||
+    (event?.status === "booked" && isFutureSession && !isRegularsSession);
+
+  useEffect(() => {
+    if (!event?.startTime || new Date(event.startTime) <= new Date()) return;
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, [event?.startTime]);
+
+  const timeLeft = useMemo(() => {
+    if (!event?.startTime) return null;
+    const diffMs = new Date(event.startTime).getTime() - currentTime.getTime();
+    if (diffMs <= 0) return "Starting now";
+
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    const seconds = diffSeconds % 60;
+    const minutes = diffMinutes % 60;
+    const hours = diffHours % 24;
+
+    if (diffDays > 0) return hours > 0 ? `${diffDays}d ${hours}h ${minutes}m` : `${diffDays}d ${minutes}m`;
+    if (diffHours > 0) return `${diffHours}h ${minutes}m`;
+    if (diffMinutes > 0) return `${diffMinutes}m ${seconds}s`;
+    return `${diffSeconds}s`;
+  }, [event?.startTime, currentTime]);
+
 
   const onDeleteAvailableSlot = () => {
     if (!slotId || !onDeleteSlot) return;
@@ -97,22 +131,26 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
     if (!event?.id) return;
     startTransition(async () => {
       const result = await cancelSession(event.id);
-
       if (result.status === 200) {
         router.refresh();
-        onOpenChange(false)
+        onOpenChange(false);
       } else {
-        console.error("Failed to remove schedule:", result.message);
+        console.error("Failed to cancel session:", result.message);
       }
     });
-  }
+  };
+
+  const color = getSessionColor(event?.sessionType ?? "individual");
 
   return (
     <>
       <Sheet open={isEventSheetOpen} onOpenChange={onOpenChange}>
-        <SheetTitle className="sr-only">Session Details</SheetTitle>
-        <SheetDescription className="sr-only">View session information</SheetDescription>
-        <SheetContent className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
+        <SheetContent
+          showCloseButton={false}
+          className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0 bg-background"
+        >
+          <SheetTitle className="sr-only">Session Details</SheetTitle>
+          <SheetDescription className="sr-only">View session information</SheetDescription>
 
           {/* ── Gradient header ── */}
           <div
@@ -123,173 +161,256 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
             <div className="absolute -bottom-6 -left-4 w-20 h-20 rounded-full bg-white/5 pointer-events-none"/>
 
             <div className="relative">
-              <div className="flex items-start justify-between mb-5">
-                {/* Avatar */}
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden shrink-0"
-                  style={{background: "rgba(255,255,255,0.18)"}}
-                >
-                  {student?.image
-                    ? <Image height={500} width={500} src={student.image} alt={student.name ?? ""} className="w-full h-full object-cover"/>
-                    : initials}
+              <div className="flex items-center justify-between mb-5">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <IconCalendar className="h-5 w-5 text-white"/>
+                </div>
+                <div className="flex flex-col items-center">
+                  <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">Session</p>
+                  <h2 className="text-white text-xl font-bold leading-tight">
+                    {isAvailableSlot ? "Available Slot" : (student?.name ?? "Unknown student")}
+                  </h2>
                 </div>
                 <button
                   onClick={() => onOpenChange(false)}
-                  className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 cursor-pointer rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <IconX className="h-4 w-4"/>
                 </button>
               </div>
-
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">Session</p>
-              <h2 className="text-white text-xl font-bold leading-tight mb-3">
-                {isAvailableSlot ? "Available" : (student?.name || "Unknown student")}
-              </h2>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                  style={{backgroundColor: "rgba(255,255,255,0.18)", color: "#fff"}}
-                >
-                  {sessionCfg.label}
-                </span>
-                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCfg.bg} ${statusCfg.text}`}>
-                  {statusCfg.label}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                  <IconCalendar className="h-3.5 w-3.5 text-white/70"/>
+                  <span className="text-white text-sm font-semibold truncate">
+                    {startTime ? fmtToday(startTime) : "—"}
+                  </span>
+                </div>
+                <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                  <IconClock className="h-3.5 w-3.5 text-white/70"/>
+                  <span className="text-white text-sm font-semibold">
+                    {startTime && !isAvailableSlot ? timeLeft : "—"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* ── Scrollable body ── */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-            {/* When */}
-            <div className="px-5 py-4 border-b border-border/60">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">When</p>
-              <div className="flex items-start gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
-                >
-                  <IconCalendar className="h-4 w-4 text-white"/>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground leading-snug">
-                    {startTime ? fmtDate(startTime) : "—"}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <IconClock className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {startTime && endTime ? `${fmt24(startTime)} – ${fmt24(endTime)}` : "—"}
-                    </span>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span className="text-sm text-muted-foreground">
-                      {event ? fmtDuration(event.duration) : "—"}
+            {/* ── Session card ── */}
+            <div className="rounded-2xl p-4 bg-muted/40 border border-border/40">
+
+              {/* Title row */}
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <h3 className="text-base font-bold text-foreground leading-snug">
+                  {isAvailableSlot
+                    ? "Available Slot"
+                    : `Session with ${student?.name ?? "Unknown student"}`}
+                </h3>
+                {/* Session type badge — only coloured element */}
+                {event && (
+                  <span
+                    className="shrink-0 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
+                    style={{color, border: `1.5px solid ${color}`, backgroundColor: hexToRgba(color, 0.08)}}
+                  >
+                    {event.sessionType}
+                  </span>
+                )}
+              </div>
+
+              {/* Location row */}
+              {event && (
+                <div className="mt-3 pt-3 border-t border-border/40 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-sm text-foreground/55">
+                    {event.location === "online"
+                      ? <IconVideo className="h-3.5 w-3.5 shrink-0"/>
+                      : <IconBuilding className="h-3.5 w-3.5 shrink-0"/>}
+                    <span className="font-medium capitalize">
+                      {event.location === "online" ? "Online" : "Classroom"}
                     </span>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Location */}
-            <div className="px-5 py-4 border-b border-border/60">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Location</p>
-              {event && (
-                <div className="flex items-center gap-2.5">
-                  {event.location === "online"
-                    ? <IconVideo className="h-4 w-4 text-muted-foreground shrink-0"/>
-                    : <IconBuilding className="h-4 w-4 text-muted-foreground shrink-0"/>}
-                  <span className="text-sm font-medium text-foreground capitalize">{event.location}</span>
+                  {event.location === "online" && (
+                    <span className="text-xs text-muted-foreground italic inline-flex items-center gap-1">
+                      <IconBrandZoom className="h-3.5 w-3.5 shrink-0"/>
+                      Link coming soon
+                    </span>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Student */}
-            {student && (
-              <div className="px-5 py-4 border-b border-border/60">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Student</p>
-                <div className="flex items-center gap-3 mb-3">
+            {/* ── When card ── */}
+            <div className="rounded-2xl p-4 bg-muted/40 border border-border/40">
+              <div className="flex flex-row  mb-3 items-center gap-2 justify-between w-full">
+                <div className="inline-flex items-center  gap-2">
+                  <IconCalendar size={14} className="text-muted-foreground"/>
+                  <span className="text-[11px] font-bold leading-0 uppercase tracking-widest text-muted-foreground">When</span>
+                </div>
+
+                {/* Countdown / status chip */}
+                {!isPast && !isAvailableSlot && timeLeft && (
+                  <div className="flex items-center gap-2">
+                    <IconClock size={14} className="text-muted-foreground"/>
+                    <p
+                      key={timeLeft}
+                      className="text-xs font-medium text-muted-foreground tabular-nums transition-all duration-500 ease-in-out animate-in fade-in slide-in-from-bottom-2"
+                    >
+                      {timeLeft}
+                    </p>
+                  </div>
+                )}
+                {isPast && !isAvailableSlot && (
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border/50">
+                    <span className="text-xs font-semibold text-muted-foreground">Completed</span>
+                  </div>
+                )}
+              </div>
+
+              {startTime ? (
+                <div className="space-y-3">
+                  {/* Time display */}
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-medium tabular-nums tracking-wider text-foreground">
+                      {fmt24(startTime)}
+                    </span>
+                    {endTime && (
+                      <>
+                        <span className="text-xl text-muted-foreground/50 font-light">–</span>
+                        <span className="text-3xl font-medium tabular-nums tracking-wider text-foreground">
+                          {fmt24(endTime)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Date + duration */}
+                  <div className="inline-flex items-center gap-2 justify-between w-full">
+                    <p className="text-sm font-medium text-foreground">{fmtDateFull(startTime)}</p>
+                    {event && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{fmtDuration(event.duration)}</p>
+                    )}
+                  </div>
+
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No date set</p>
+              )}
+            </div>
+
+            {/* ── Student card ── */}
+            {student && (
+              <div className="rounded-2xl p-4 bg-muted/40 border border-border/40">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Student</span>
+                </div>
+
+                {/* Name + email + level */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden"
                     style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
                   >
-                    {student.image
-                      ? <Image height={500} width={500} src={student.image} alt={student.name ?? ""} className="w-full h-full object-cover"/>
-                      : initials}
+                    <Avatar>
+                      <AvatarImage src={student.image} alt={`${student.name}'s profile picture`}/>
+                      <AvatarFallback>
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
                   </div>
-                  <span className="text-sm font-semibold text-foreground">{student.name}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">{student.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{student.email}</p>
+                  </div>
+                  {student.languageLevel && (
+                    <span
+                      className="shrink-0 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
+                      style={{
+                        color: "#0891b2",
+                        border: "1.5px solid rgba(8,145,178,0.07)",
+                        backgroundColor: "transparent",
+                      }}
+                    >
+                      {student.languageLevel}
+                    </span>
+                  )}
                 </div>
-                {student.email && (
-                  <div className="flex items-center gap-2.5">
-                    <IconMail className="h-4 w-4 text-muted-foreground shrink-0"/>
-                    <span className="text-sm text-muted-foreground">{student.email}</span>
+
+                {/* Learning goals */}
+                {student.preferences?.learningGoals && student.preferences.learningGoals.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <IconTarget className="h-3 w-3 text-muted-foreground"/>
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Learning Goals</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {student.preferences.learningGoals.map((goal) => {
+                        const g = GOAL_LABELS[goal];
+                        return (
+                          <div
+                            key={goal}
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-background border border-border/50"
+                          >
+                            <span className="text-base leading-none">{g?.icon ?? "•"}</span>
+                            <span className="text-xs font-medium text-foreground/80">{g?.label ?? goal}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             )}
-
-            {/* Session type */}
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Session Type</p>
-              {event && (
-                <div
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                  style={{backgroundColor: sessionCfg.lightColor, border: `1.5px solid ${sessionCfg.borderColor}`}}
-                >
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor: sessionCfg.hex}}/>
-                  <span className="text-sm font-semibold" style={{color: sessionCfg.hex}}>{sessionCfg.label}</span>
-                  <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-                    <IconMapPin className="h-3.5 w-3.5 shrink-0"/>
-                    <span className="capitalize">{event.location}</span>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* ── Footer ── */}
+          {/* ── Footer actions ── */}
           {showFooter && event && (
-            <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-muted/20">
+            <div className="shrink-0 px-4 py-4 border-t border-border/50 bg-background">
               <div className="flex gap-2">
                 {isAvailableSlot ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
                     disabled={deletingSlot}
-                    className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={onDeleteAvailableSlot}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-sm"
                   >
                     <IconTrash className="h-4 w-4"/>
-                    {deletingSlot ? "Removing..." : "Remove Slot"}
-                  </button>
+                    {deletingSlot ? "Removing…" : "Remove Slot"}
+                  </Button>
                 ) : isRegularsSession ? (
                   <>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setCancelDialogOpen(true)}
-                      className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-sm border border-border/60 hover:bg-muted transition-colors"
                     >
                       <IconX className="h-4 w-4"/>
                       Cancel Session
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="destructive"
                       onClick={() => setRemoveDialogOpen(true)}
-                      className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-sm"
                     >
                       <IconTrash className="h-4 w-4"/>
                       Remove Schedule
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
                     disabled={pending}
-                    className="flex-1 flex items-center cursor-pointer justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive border border-destructive/30 hover:bg-destructive/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => onCancelSession()}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-sm"
                   >
                     <IconX className="h-4 w-4"/>
-                    {pending ? "Cancelling..." : "Cancel Session"}
-                  </button>
+                    {pending ? "Cancelling…" : "Cancel Session"}
+                  </Button>
                 )}
               </div>
             </div>
@@ -297,7 +418,6 @@ export const EventSheet = ({isEventSheetOpen, onOpenChange, selectedSession: eve
         </SheetContent>
       </Sheet>
 
-      {/* Dialogs */}
       {event && isRegularsSession && event.invitationId && (
         <>
           <CancelSessionDialog
