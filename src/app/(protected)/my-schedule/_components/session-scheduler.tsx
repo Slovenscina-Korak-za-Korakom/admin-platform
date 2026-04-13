@@ -1,54 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect, useMemo, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import React, {useCallback, useEffect, useMemo, useRef, useState, useTransition} from "react";
+import {useRouter} from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
-import { DateSelectArg } from "@fullcalendar/core";
-import { CalendarControls } from "@/components/calendar/calendar-controls";
-import { SessionData } from "@/components/calendar/types";
+import {DateSelectArg} from "@fullcalendar/core";
+import {CalendarControls} from "@/components/calendar/calendar-controls";
+import {AvailableSlotData, SessionData} from "@/components/calendar/types";
 import "@/components/calendar/calendar-styles.css";
 import {useCalendarResize} from "@/hooks/use-calendar-resize";
+import {Sheet, SheetContent, SheetDescription, SheetTitle,} from "@/components/ui/sheet";
+import {Button} from "@/components/ui/button";
+import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
+import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,} from "@/components/ui/command";
 import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
+  IconBuilding,
   IconCalendar,
   IconCalendarPlus,
   IconCheck,
   IconClock,
-  IconVideo,
-  IconBuilding,
-  IconUser,
   IconSelector,
+  IconUser,
+  IconVideo,
   IconX,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
-import { getStudents, createOneTimeSession, createAvailableSlot } from "@/actions/timeblocks";
-import { getSessionColor } from "@/lib/session-colors";
-import { AvailableSlotData } from "@/components/calendar/types";
-import type { Student } from "./schedule-sheet";
+import {createAvailableSlot, createOneTimeSession, getStudents} from "@/actions/timeblocks";
+import {getSessionColor} from "@/lib/session-colors";
+import type {Student} from "./schedule-sheet";
+import {DatePicker} from "@/components/ui/date-picker";
+import {TimePicker} from "@/components/ui/time-picker";
+import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -92,10 +78,6 @@ const SESSION_TYPE_CONFIG = {
   },
 };
 
-const LOCATION_CONFIG = {
-  online: { label: "Online", icon: IconVideo },
-  classroom: { label: "Classroom", icon: IconBuilding },
-};
 
 const DURATION_PRESETS = [30, 45, 60, 75, 90, 120];
 
@@ -111,9 +93,9 @@ const formatDuration = (minutes: number): string => {
 
 const formatDate = (dateStr: string): string =>
   new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
-    month: "long",
+    month: "short",
     year: "numeric",
   });
 
@@ -123,7 +105,6 @@ const addMinutes = (time: string, minutes: number): string => {
   return `${Math.floor(total / 60) % 24}`.padStart(2, "0") + ":" + `${total % 60}`.padStart(2, "0");
 };
 
-const todayStr = () => new Date().toISOString().split("T")[0];
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -132,7 +113,7 @@ interface SessionSchedulerProps {
   availableSlots: AvailableSlotData[];
 }
 
-const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
+const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useCalendarResize(calendarRef);
   const router = useRouter();
@@ -140,7 +121,7 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
 
   // Calendar UI state
   const [calendarTitle, setCalendarTitle] = useState(
-    new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+    new Date().toLocaleDateString("en-GB", {month: "long", year: "numeric"})
   );
   const [currentView, setCurrentView] = useState("dayGridMonth");
   const [showWeekends, setShowWeekends] = useState(true);
@@ -259,20 +240,20 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
     startTransition(async () => {
       const result = mode === "available"
         ? await createAvailableSlot({
-            date: formData.date,
-            startTime: formData.startTime,
-            duration: formData.duration,
-            sessionType: formData.sessionType,
-            location: formData.location,
-          })
+          date: formData.date,
+          startTime: formData.startTime,
+          duration: formData.duration,
+          sessionType: formData.sessionType,
+          location: formData.location,
+        })
         : await createOneTimeSession({
-            date: formData.date,
-            startTime: formData.startTime,
-            duration: formData.duration,
-            sessionType: formData.sessionType,
-            location: formData.location,
-            studentClerkId: formData.studentClerkId,
-          });
+          date: formData.date,
+          startTime: formData.startTime,
+          duration: formData.duration,
+          sessionType: formData.sessionType,
+          location: formData.location,
+          studentClerkId: formData.studentClerkId,
+        });
 
       if (result.status === 200) {
         setIsSheetOpen(false);
@@ -293,23 +274,11 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
 
   const calendarEvents = useMemo(() => {
     const booked = data.map((session) => {
-      const color =
-        session.sessionType === "group"
-          ? SESSION_COLORS.group
-          : session.sessionType === "test"
-          ? SESSION_COLORS.test
-          : SESSION_COLORS.individual;
-
-      const title =
-        session.sessionType === "group"
-          ? "Group"
-          : session.sessionType === "test"
-          ? "Test"
-          : "Individual";
+      const color = getSessionColor(session.sessionType)
 
       return {
         id: `existing-${session.id}`,
-        title,
+        title: session.sessionType,
         start: session.startTime,
         end: new Date(new Date(session.startTime).getTime() + session.duration * 60000),
         backgroundColor: color,
@@ -326,16 +295,9 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
     const available = availableSlots.map((slot) => {
       const color = getSessionColor(slot.sessionType);
 
-      const title =
-        slot.sessionType === "group"
-          ? "Group"
-          : slot.sessionType === "test"
-          ? "Test"
-          : "Individual";
-
       return {
         id: `available-${slot.id}`,
-        title,
+        title: slot.sessionType,
         start: slot.startTime,
         end: new Date(new Date(slot.startTime).getTime() + slot.duration * 60000),
         backgroundColor: "transparent",
@@ -369,9 +331,9 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
-            style={{ background: "linear-gradient(135deg, #0891b2, #2563eb)" }}
+            style={{background: "linear-gradient(135deg, #0891b2, #2563eb)"}}
           >
-            <IconCalendarPlus className="h-5 w-5 text-white" />
+            <IconCalendarPlus className="h-5 w-5 text-white"/>
           </div>
           <div>
             <h1 className="text-sm font-bold text-foreground leading-tight">Add Event</h1>
@@ -410,31 +372,31 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
           views={{
             timeGridWeek: {
               type: "timeGrid",
-              duration: { weeks: 1 },
+              duration: {weeks: 1},
               buttonText: "Week",
               allDaySlot: false,
-              dayHeaderFormat: { weekday: "short", day: "numeric" },
+              dayHeaderFormat: {weekday: "short", day: "numeric"},
             },
             timeGrid2Day: {
               type: "timeGrid",
-              duration: { days: 2 },
+              duration: {days: 2},
               buttonText: "2 days",
               allDaySlot: false,
-              dayHeaderFormat: { weekday: "long", day: "numeric" },
+              dayHeaderFormat: {weekday: "long", day: "numeric"},
             },
             timeGrid3Day: {
               type: "timeGrid",
-              duration: { days: 3 },
+              duration: {days: 3},
               buttonText: "3 days",
               allDaySlot: false,
-              dayHeaderFormat: { weekday: "long", day: "numeric" },
+              dayHeaderFormat: {weekday: "long", day: "numeric"},
             },
             timeGridDay: {
               type: "timeGrid",
-              duration: { days: 1 },
+              duration: {days: 1},
               buttonText: "Day",
               allDaySlot: false,
-              dayHeaderFormat: { weekday: "long", day: "numeric" },
+              dayHeaderFormat: {weekday: "long", day: "numeric"},
             },
           }}
           allDaySlot={false}
@@ -445,13 +407,13 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
           editable={false}
           scrollTime="08:00:00"
           slotDuration="00:15:00"
-          slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+          slotLabelFormat={{hour: "2-digit", minute: "2-digit", hour12: false}}
           dayMaxEvents={2}
           dayCellContent={(dayInfo: any) => {
             const date = new Date(dayInfo.date);
             const dayNumber = date.getDate();
             if (dayNumber === 1) {
-              const monthName = date.toLocaleDateString("en-US", { month: "long" });
+              const monthName = date.toLocaleDateString("en-US", {month: "long"});
               return (
                 <div>
                   <p className="inline-flex items-center gap-2">
@@ -525,6 +487,7 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        textTransform: "capitalize"
                       }}
                     >
                       {eventInfo.event.title}
@@ -601,6 +564,7 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      textTransform: "capitalize"
                     }}
                   >
                     {eventInfo.event.title}
@@ -625,23 +589,31 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
       </div>
 
       {/* ── Session sheet ── */}
-      <Sheet open={isSheetOpen} onOpenChange={(open) => { if (!open) closeSheet(); }}>
-        <SheetTitle className="sr-only">New Session</SheetTitle>
-        <SheetDescription className="sr-only">Configure session details</SheetDescription>
-        <SheetContent className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
+      <Sheet open={isSheetOpen} onOpenChange={(open) => {
+        if (!open) closeSheet();
+      }}>
+        <SheetContent showCloseButton={false} className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden gap-0">
+          <SheetTitle className="sr-only">New Session</SheetTitle>
+          <SheetDescription className="sr-only">Configure session details</SheetDescription>
 
           {/* Header */}
           <div
             className="shrink-0 px-6 pt-7 pb-6 relative overflow-hidden"
-            style={{ background: "linear-gradient(150deg, #0891b2 0%, #2563eb 50%, #7c3aed 100%)" }}
+            style={{background: "linear-gradient(150deg, #0891b2 0%, #2563eb 50%, #7c3aed 100%)"}}
           >
-            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5" />
-            <div className="absolute -bottom-6 -left-4 w-20 h-20 rounded-full bg-white/5" />
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5"/>
+            <div className="absolute -bottom-6 -left-4 w-20 h-20 rounded-full bg-white/5"/>
 
             <div className="relative">
               <div className="flex items-center justify-between mb-5">
                 <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-                  <IconCalendar className="h-5 w-5 text-white" />
+                  <IconCalendar className="h-5 w-5 text-white"/>
+                </div>
+                <div className="flex flex-col items-center justify-start">
+                  <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
+                    New
+                  </p>
+                  <h2 className="text-white text-2xl font-bold leading-tight mb-4">Session</h2>
                 </div>
                 <Button
                   variant="ghost"
@@ -649,31 +621,23 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                   disabled={isPending}
                   className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
                 >
-                  <IconX className="h-4 w-4" />
+                  <IconX className="h-4 w-4"/>
                 </Button>
               </div>
-
-              <p className="text-white/50 text-[11px] font-semibold uppercase tracking-widest mb-1">
-                New
-              </p>
-              <h2 className="text-white text-2xl font-bold leading-tight mb-4">Session</h2>
 
               {/* Date / time pills */}
               {formData.date && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
-                    <IconCalendar className="h-3.5 w-3.5 text-white/70" />
+                  <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                    <IconCalendar className="h-3.5 w-3.5 text-white/70"/>
                     <span className="text-white text-sm font-semibold">{formatDate(formData.date)}</span>
                   </div>
-                  <div className="flex items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
-                    <IconClock className="h-3.5 w-3.5 text-white/70" />
+                  <div className="flex flex-1 items-center gap-2 bg-white/12 rounded-lg px-3 py-2">
+                    <IconClock className="h-3.5 w-3.5 text-white/70"/>
                     <span className="text-white text-sm font-semibold tabular-nums">
                       {formData.startTime}
                       <span className="text-white/55 font-normal"> – {endTime}</span>
                     </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-white/12 rounded-lg px-3 py-2">
-                    <span className="text-white/70 text-sm">{formatDuration(formData.duration)}</span>
                   </div>
                 </div>
               )}
@@ -688,17 +652,8 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Event Type
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMode("available")}
-                  className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
-                  style={{
-                    backgroundColor: mode === "available" ? "rgba(8, 145, 178, 0.07)" : "transparent",
-                    borderColor: mode === "available" ? "#0891b2" : "hsl(var(--border))",
-                    borderWidth: "1.5px",
-                  }}
-                >
+              <AnimatedButtonGroup value={mode} onChange={(v) => setMode(v as "available" | "book")}>
+                <AnimatedButtonGroupItem value={"available"} hex={"#0891b2"} lightColor={"rgba(8, 145, 178, 0.07)"}>
                   <div
                     className="w-3.5 h-3.5 rounded-sm shrink-0 border"
                     style={{
@@ -709,37 +664,16 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                         : "transparent",
                     }}
                   />
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: mode === "available" ? "#0891b2" : undefined }}
-                  >
-                    Available Slot
-                  </span>
-                  {mode === "available" && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-600" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("book")}
-                  className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
-                  style={{
-                    backgroundColor: mode === "book" ? "rgba(37, 99, 235, 0.07)" : "transparent",
-                    borderColor: mode === "book" ? "#2563eb" : "hsl(var(--border))",
-                    borderWidth: "1.5px",
-                  }}
-                >
+                  Available Slot
+                </AnimatedButtonGroupItem>
+                <AnimatedButtonGroupItem value={"book"} hex={"#2563eb"} lightColor={"rgba(37, 99, 235, 0.07)"}>
                   <IconUser
                     className="h-3.5 w-3.5 shrink-0"
-                    style={{ color: mode === "book" ? "#2563eb" : undefined }}
+                    style={{color: mode === "book" ? "#2563eb" : undefined}}
                   />
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: mode === "book" ? "#2563eb" : undefined }}
-                  >
-                    Book Student
-                  </span>
-                  {mode === "book" && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />}
-                </button>
-              </div>
+                  Book Student
+                </AnimatedButtonGroupItem>
+              </AnimatedButtonGroup>
               <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
                 {mode === "available"
                   ? "Mark this slot as available for students to book."
@@ -755,21 +689,17 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Date</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={formData.date}
-                    min={todayStr()}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="cursor-pointer w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
+                    onChange={(v) => setFormData({...formData, date: v})}
+                    disablePast
                   />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Start time</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="cursor-pointer w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 transition-all"
+                    onChange={(v) => setFormData({...formData, startTime: v})}
                   />
                 </div>
               </div>
@@ -779,26 +709,22 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                 <label className="text-xs text-muted-foreground mb-2 block">
                   Duration — {formatDuration(formData.duration)}
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {DURATION_PRESETS.map((d) => {
-                    const active = formData.duration === d;
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, duration: d })}
-                        className="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
-                        style={{
-                          backgroundColor: active ? "rgba(37, 99, 235, 0.08)" : "transparent",
-                          borderColor: active ? "#2563eb" : "hsl(var(--border))",
-                          color: active ? "#2563eb" : undefined,
-                        }}
-                      >
-                        {formatDuration(d)}
-                      </button>
-                    );
-                  })}
-                </div>
+                <AnimatedButtonGroup
+                  value={formData.duration.toString()}
+                  onChange={(v) => setFormData({...formData, duration: parseInt(v)})}
+                >
+                  {DURATION_PRESETS.map((d) => (
+                    <AnimatedButtonGroupItem
+                      key={d}
+                      value={d.toString()}
+                      hex="#2563eb"
+                      lightColor="rgba(37,99,235,0.08)"
+                      className="py-0 text-xs"
+                    >
+                      {formatDuration(d)}
+                    </AnimatedButtonGroupItem>
+                  ))}
+                </AnimatedButtonGroup>
               </div>
             </div>
 
@@ -807,40 +733,20 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Session Type
               </p>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.entries(SESSION_TYPE_CONFIG) as [keyof typeof SESSION_TYPE_CONFIG, typeof SESSION_TYPE_CONFIG.individual][]).map(
-                  ([key, cfg]) => {
-                    const active = formData.sessionType === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                          setFormData({ ...formData, sessionType: key, color: SESSION_COLORS[key] })
-                        }
-                        className="cu relative rounded-xl px-3 py-3 text-center transition-all"
-                        style={{
-                          backgroundColor: active ? cfg.lightColor : "transparent",
-                          border: `1.5px solid ${active ? cfg.hex : "hsl(var(--border))"}`,
-                        }}
-                      >
-                        {active && (
-                          <div
-                            className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: cfg.hex }}
-                          />
-                        )}
-                        <span
-                          className="text-[13px] font-semibold block"
-                          style={{ color: active ? cfg.hex : undefined }}
-                        >
-                          {cfg.label}
-                        </span>
-                      </button>
-                    );
-                  }
-                )}
-              </div>
+              <AnimatedButtonGroup
+                value={formData.sessionType}
+                showDot
+                onChange={(v) => {
+                  const key = v as keyof typeof SESSION_TYPE_CONFIG;
+                  setFormData({...formData, sessionType: key, color: SESSION_COLORS[key]});
+                }}
+              >
+                {(Object.entries(SESSION_TYPE_CONFIG) as [keyof typeof SESSION_TYPE_CONFIG, typeof SESSION_TYPE_CONFIG.individual][]).map(([key, cfg]) => (
+                  <AnimatedButtonGroupItem key={key} value={key} hex={cfg.hex} lightColor={cfg.lightColor}>
+                    {cfg.label}
+                  </AnimatedButtonGroupItem>
+                ))}
+              </AnimatedButtonGroup>
               <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
                 {sessionConfig.description}
               </p>
@@ -855,65 +761,79 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm hover:border-border/80 transition-colors bg-background"
+                    className="cursor-pointer w-full flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background px-3.5 py-2.5 text-sm transition-all hover:border-border hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
                   >
                     {selectedStudent ? (
                       <span className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                          style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}
-                        >
-                          {selectedStudent.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="min-w-0">
-                          <span className="font-medium block truncate">{selectedStudent.name}</span>
-                          <span className="text-xs text-muted-foreground truncate block">
-                            {selectedStudent.email}
-                          </span>
+                        <Avatar>
+                          <AvatarImage src={selectedStudent.image} alt={`${selectedStudent.name}'s profile picture`}/>
+                          <AvatarFallback
+                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-semibold"
+                            style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+                          >
+                            {selectedStudent.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="min-w-0 flex flex-col items-start">
+                          <span className="text-sm font-medium text-foreground truncate">{selectedStudent.name}</span>
+                          <span
+                            className="text-[11px] text-muted-foreground truncate leading-tight">{selectedStudent.email}</span>
                         </span>
                       </span>
                     ) : (
                       <span className="flex items-center gap-2 text-muted-foreground">
-                        <IconUser className="h-4 w-4" />
+                        <IconUser className="h-3.5 w-3.5"/>
                         <span>Select a student…</span>
                       </span>
                     )}
-                    <IconSelector className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                    <IconSelector className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0"/>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search students…" />
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" side="bottom" align="center">
+                  <Command className="w-80 max-h-48">
+                    <CommandInput placeholder="Search…"/>
                     <CommandList>
-                      <CommandEmpty>No students found.</CommandEmpty>
+                      <CommandEmpty>
+                        <div className="flex flex-row items-center px-4 gap-1.5">
+                          <IconUser size={16} className="text-muted-foreground/40"/>
+                          <p className="text-sm text-muted-foreground">No students found</p>
+                        </div>
+                      </CommandEmpty>
                       <CommandGroup>
-                        {students.map((student) => (
-                          <CommandItem
-                            key={student.clerkId}
-                            value={`${student.name} ${student.email}`}
-                            onSelect={() => {
-                              setFormData({
-                                ...formData,
-                                studentClerkId: student.clerkId,
-                                studentEmail: student.email,
-                              });
-                              setStudentSelectOpen(false);
-                            }}
-                          >
-                            <IconCheck
-                              className={cn(
-                                "mr-2 h-4 w-4 shrink-0",
-                                formData.studentClerkId === student.clerkId ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div className="cursor-pointer flex flex-col min-w-0">
-                              <span className="font-medium truncate">{student.name}</span>
-                              <span className="text-xs text-muted-foreground truncate">
-                                {student.email}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
+                        {students.map((student) => {
+                          const isSelected = formData.studentClerkId === student.clerkId;
+                          return (
+                            <CommandItem
+                              key={student.clerkId}
+                              value={`${student.name} ${student.email}`}
+                              onSelect={() => {
+                                setFormData({
+                                  ...formData,
+                                  studentClerkId: student.clerkId,
+                                  studentEmail: student.email,
+                                });
+                                setStudentSelectOpen(false);
+                              }}
+                              className="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
+                            >
+                              <Avatar>
+                                <AvatarImage src={student.image} alt={`${student.name}'s profile picture`}/>
+                                <AvatarFallback
+                                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-semibold"
+                                  style={{background: "linear-gradient(135deg, #2563eb, #7c3aed)"}}
+                                >
+                                  {student.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium truncate">{student.name}</span>
+                                <span
+                                  className="text-[11px] text-muted-foreground truncate leading-tight">{student.email}</span>
+                              </div>
+                              {isSelected && <IconCheck className="h-3.5 w-3.5 text-blue-500 shrink-0"/>}
+                            </CommandItem>
+                          );
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>
@@ -923,10 +843,10 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
               {selectedStudent && (
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, studentClerkId: "", studentEmail: "" })}
-                  className="cursor-pointer mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  onClick={() => setFormData({...formData, studentClerkId: "", studentEmail: ""})}
+                  className="cursor-pointer mt-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground flex items-center gap-1 transition-colors"
                 >
-                  <IconX className="h-3 w-3" /> Clear student
+                  <IconX className="h-3 w-3"/> Clear
                 </button>
               )}
             </div>}
@@ -936,41 +856,19 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Location
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.entries(LOCATION_CONFIG) as [string, typeof LOCATION_CONFIG.online][]).map(
-                  ([key, cfg]) => {
-                    const active = formData.location === key;
-                    const Icon = cfg.icon;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                          setFormData({ ...formData, location: key as "online" | "classroom" })
-                        }
-                        className="cursor-pointer flex items-center gap-2.5 rounded-xl px-4 py-3 transition-all border"
-                        style={{
-                          backgroundColor: active ? "rgba(37, 99, 235, 0.07)" : "transparent",
-                          borderColor: active ? "#2563eb" : "hsl(var(--border))",
-                          borderWidth: "1.5px",
-                        }}
-                      >
-                        <Icon
-                          className="h-4 w-4 shrink-0"
-                          style={{ color: active ? "#2563eb" : undefined }}
-                        />
-                        <span
-                          className="text-sm font-medium"
-                          style={{ color: active ? "#2563eb" : undefined }}
-                        >
-                          {cfg.label}
-                        </span>
-                        {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
+              <AnimatedButtonGroup
+                value={formData.location}
+                onChange={(v) => setFormData({...formData, location: v as "online" | "classroom"})}
+              >
+                <AnimatedButtonGroupItem value="online" hex="#0891b2" lightColor="rgba(8,145,178,0.07)">
+                  <IconVideo className="h-3.5 w-3.5"/>
+                  Online
+                </AnimatedButtonGroupItem>
+                <AnimatedButtonGroupItem value="classroom" hex="#7c3aed" lightColor="rgba(124,58,237,0.07)">
+                  <IconBuilding className="h-3.5 w-3.5"/>
+                  Classroom
+                </AnimatedButtonGroupItem>
+              </AnimatedButtonGroup>
             </div>
           </div>
 
@@ -988,9 +886,9 @@ const SessionScheduler = ({ data, availableSlots }: SessionSchedulerProps) => {
                 onClick={handleSave}
                 disabled={!formData.date || !formData.startTime || (mode === "book" && !formData.studentClerkId) || isPending}
                 className="cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg, #0891b2, #2563eb)" }}
+                style={{background: "linear-gradient(135deg, #0891b2, #2563eb)"}}
               >
-                <IconCheck className="h-4 w-4" />
+                <IconCheck className="h-4 w-4"/>
                 {isPending ? "Saving…" : "Save Session"}
               </button>
             </div>
