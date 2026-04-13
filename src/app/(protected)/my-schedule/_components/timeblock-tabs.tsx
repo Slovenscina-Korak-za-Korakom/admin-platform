@@ -2,7 +2,7 @@
 
 import React, {useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
-import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
 import {
   IconCalendar,
   IconCalendarEvent,
@@ -12,6 +12,12 @@ import ScheduleBuilder from "@/app/(protected)/my-schedule/_components/schedule-
 import Calendar from "@/components/calendar/calendar";
 import SessionScheduler from "@/app/(protected)/my-schedule/_components/session-scheduler";
 import {SessionData, AvailableSlotData} from "@/components/calendar/types";
+
+const TABS = [
+  {value: "calendar", hex: "#2563eb", lightColor: "#eff6ff", Icon: IconCalendar, label: "Calendar View"},
+  {value: "templates", hex: "#5025eb", lightColor: "#eff6ff", Icon: IconCalendarEvent, label: "My Schedule"},
+  {value: "add-event", hex: "#259feb", lightColor: "#eff6ff", Icon: IconCalendarPlus, label: "Add Event"},
+] as const;
 
 const TimeblockTabs = ({
                          data,
@@ -36,48 +42,26 @@ const TimeblockTabs = ({
   };
 
   return (
-    <Tabs
-      value={currentTab}
-      defaultValue="calendar"
-      onValueChange={handleTabChange}
-      className="flex flex-col flex-1 min-h-0 space-y-4"
-    >
-      <TabsList className="mx-auto flex-shrink-0 h-auto p-1 gap-1 bg-muted/60 border border-border/50 rounded-xl">
-        <TabsTrigger
-          value="calendar"
-          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
-        >
-          <IconCalendar className="mr-2 h-4 w-4"/>
-          Calendar View
-        </TabsTrigger>
-        <TabsTrigger
-          value="templates"
-          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
-        >
-          <IconCalendarEvent className="mr-2 h-4 w-4"/>
-          My Schedule
-        </TabsTrigger>
-        <TabsTrigger
-          value="add-event"
-          className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium transition-all"
-        >
-          <IconCalendarPlus className="mr-2 h-4 w-4"/>
-          Add Event
-        </TabsTrigger>
-      </TabsList>
+    <div className="flex flex-col flex-1 min-h-0 space-y-4">
+      <AnimatedButtonGroup
+        value={currentTab}
+        onChange={handleTabChange}
+        className="mx-auto flex-shrink-0"
+      >
+        {TABS.map(({value, hex, lightColor, Icon, label}) => (
+          <AnimatedButtonGroupItem key={value} value={value} hex={hex} lightColor={lightColor}>
+            <Icon className="h-4 w-4"/>
+            {label}
+          </AnimatedButtonGroupItem>
+        ))}
+      </AnimatedButtonGroup>
 
-      <TabsContent value="calendar" className="flex-1 min-h-0 overflow-hidden">
-        <Calendar data={data} availableSlots={availableSlots}/>
-      </TabsContent>
-
-      <TabsContent value="templates" className="flex-1 min-h-0 overflow-hidden">
-        <ScheduleBuilder/>
-      </TabsContent>
-
-      <TabsContent value="add-event" className="flex-1 min-h-0 overflow-hidden">
-        <SessionScheduler data={data} availableSlots={availableSlots}/>
-      </TabsContent>
-    </Tabs>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {currentTab === "calendar" && <Calendar data={data} availableSlots={availableSlots}/>}
+        {currentTab === "templates" && <ScheduleBuilder/>}
+        {currentTab === "add-event" && <SessionScheduler data={data} availableSlots={availableSlots}/>}
+      </div>
+    </div>
   );
 };
 
