@@ -16,7 +16,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import {calculateEndTime} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
-import {getSessionColor, hexToRgba, SESSION_COLORS} from "@/lib/session-colors";
+import {hexToRgba, SESSION_COLORS} from "@/lib/session-colors";
 import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 
@@ -59,9 +59,6 @@ const SESSION_TYPE_CONFIG = {
   },
 };
 
-const getDefaultColorForSessionType = (sessionType: string): string =>
-  getSessionColor(sessionType);
-
 interface CalendarEvent {
   id: string;
   dayOfWeek: number;
@@ -70,7 +67,6 @@ interface CalendarEvent {
   sessionType: string;
   location: string;
   description?: string;
-  color: string;
   email?: string;
   studentClerkId?: string;
 }
@@ -90,7 +86,6 @@ interface ScheduleSheetProps {
     sessionType: string;
     location: string;
     description: string;
-    color: string;
     email: string;
     studentClerkId: string;
     pricePerSession: string;
@@ -101,7 +96,6 @@ interface ScheduleSheetProps {
     sessionType: string;
     location: string;
     description: string;
-    color: string;
     email: string;
     studentClerkId: string;
     pricePerSession: string;
@@ -135,7 +129,6 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
     onFormDataChange({
       ...formData,
       sessionType: value,
-      color: getDefaultColorForSessionType(value),
       email: value === "regular" ? formData.email : "",
       studentClerkId: value === "regular" ? formData.studentClerkId : "",
       pricePerSession: value === "regular" ? formData.pricePerSession : "",

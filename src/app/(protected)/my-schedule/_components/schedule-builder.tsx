@@ -52,7 +52,6 @@ export interface CalendarEvent {
   sessionType: string;
   location: string;
   description?: string;
-  color: string;
   email?: string;
   studentClerkId?: string;
   pricePerSession?: number;
@@ -63,9 +62,6 @@ export interface SlotDiff {
   removed: CalendarEvent[];
   modified: {before: CalendarEvent; after: CalendarEvent}[];
 }
-
-const getDefaultColorForSessionType = (sessionType: string): string =>
-  getSessionColor(sessionType);
 
 const ScheduleBuilder = () => {
   const calendarRef = useRef<FullCalendar>(null);
@@ -85,7 +81,6 @@ const ScheduleBuilder = () => {
     sessionType: string;
     location: string;
     description: string;
-    color: string;
     email: string;
     studentClerkId: string;
     pricePerSession: string;
@@ -95,7 +90,6 @@ const ScheduleBuilder = () => {
     sessionType: "individual",
     location: "online",
     description: "",
-    color: "#3b82f6",
     email: "",
     studentClerkId: "",
     pricePerSession: "",
@@ -126,9 +120,6 @@ const ScheduleBuilder = () => {
             sessionType: timeSlot.sessionType,
             location: timeSlot.location,
             description: timeSlot.description,
-            color:
-              timeSlot.color ||
-              getDefaultColorForSessionType(timeSlot.sessionType),
             email: timeSlot.email,
             studentClerkId: timeSlot.studentClerkId,
             pricePerSession: timeSlot.pricePerSession,
@@ -244,7 +235,6 @@ const ScheduleBuilder = () => {
         sessionType: existingEvent.sessionType,
         location: existingEvent.location,
         description: existingEvent.description || "",
-        color: existingEvent.color,
         email: existingEvent.email || "",
         studentClerkId: existingEvent.studentClerkId || "",
         pricePerSession: existingEvent.pricePerSession?.toString() ?? "",
@@ -257,14 +247,12 @@ const ScheduleBuilder = () => {
     } else {
       // Create a new event-duration is set by drag selection
       setEditingEvent(null);
-      const defaultColor = getDefaultColorForSessionType("individual");
       setFormData({
         startTime,
         duration: finalDuration,
         sessionType: "individual",
         location: "online",
         description: "",
-        color: defaultColor,
         email: "",
         studentClerkId: "",
         pricePerSession: "",
@@ -295,7 +283,6 @@ const ScheduleBuilder = () => {
         sessionType: event.sessionType as string,
         location: event.location,
         description: event.description || "",
-        color: event.color,
         email: event.email || "",
         studentClerkId: event.studentClerkId || "",
         pricePerSession: event.pricePerSession?.toString() ?? "",
@@ -400,7 +387,6 @@ const ScheduleBuilder = () => {
               sessionType: formData.sessionType,
               location: formData.location,
               description: formData.description,
-              color: formData.color,
               email: formData.sessionType === "regular" ? formData.email : undefined,
               studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
               pricePerSession: formData.sessionType === "regular" && formData.pricePerSession ? parseFloat(formData.pricePerSession) : undefined,
@@ -419,7 +405,6 @@ const ScheduleBuilder = () => {
         sessionType: formData.sessionType,
         location: formData.location,
         description: formData.description,
-        color: formData.color,
         email: formData.sessionType === "regular" ? formData.email : undefined,
         studentClerkId: formData.sessionType === "regular" ? formData.studentClerkId : undefined,
         pricePerSession: formData.sessionType === "regular" && formData.pricePerSession ? parseFloat(formData.pricePerSession) : undefined,
@@ -480,7 +465,6 @@ const ScheduleBuilder = () => {
         sessionType: event.sessionType as string,
         location: event.location,
         description: event.description,
-        color: event.color,
         email: event.email,
         studentClerkId: event.studentClerkId,
         pricePerSession: event.pricePerSession,
@@ -619,6 +603,7 @@ const ScheduleBuilder = () => {
     return events.map((event) => {
       const startDate = getDateForDayOfWeek(event.dayOfWeek, event.startTime);
       const endDate = new Date(startDate.getTime() + event.duration * 60000);
+      const color = getSessionColor(event.sessionType)
 
       const title = event.sessionType === "regular" && event.email
         ? `${event.sessionType} (${event.email}) • ${event.location}`
@@ -629,14 +614,14 @@ const ScheduleBuilder = () => {
         title,
         start: startDate,
         end: endDate,
-        backgroundColor: event.color,
-        borderColor: event.color,
+        backgroundColor: color,
+        borderColor: color,
         textColor: "#ffffff",
         extendedProps: {
           sessionType: event.sessionType,
           location: event.location,
           description: event.description,
-          color: event.color,
+          color: color,
           email: event.email,
           studentName: event.studentClerkId
             ? students.find(s => s.clerkId === event.studentClerkId)?.name
@@ -788,6 +773,7 @@ const ScheduleBuilder = () => {
               : sessionType.charAt(0).toUpperCase() + sessionType.slice(1);
             const locationLabel = location === "online" ? "Online" : "Classroom";
 
+            console.log(`session type: ${sessionType} color: ${color}`);
             return (
               <div
                 style={{

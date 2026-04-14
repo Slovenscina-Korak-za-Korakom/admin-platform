@@ -136,7 +136,6 @@ async function processRegularInvitations(userId: string, daySchedules: any[], ne
         duration: slot.duration,
         location: slot.location,
         description: slot.description || null,
-        color: slot.color || null,
         pricePerSession: slot.pricePerSession != null ? String(slot.pricePerSession) : null,
         timezone: timezone ?? null,
       });
@@ -345,7 +344,6 @@ export const getAcceptedRegulars = async () => {
         duration: regularInvitationsTable.duration,
         location: regularInvitationsTable.location,
         description: regularInvitationsTable.description,
-        color: regularInvitationsTable.color,
         timezone: regularInvitationsTable.timezone,
       })
       .from(regularInvitationsTable)
