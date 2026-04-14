@@ -122,7 +122,7 @@ export default async function TimeblocksPage({
   ]);
 
   const timeblocksData = (scheduleResult.data || []) as SessionData[];
-  const scheduleData = tutorSchedule.data;
+  const scheduleData = tutorSchedule.data ?? {id: 0, schedule: [], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, createdAt: new Date(), updatedAt: new Date()};
   const acceptedRegulars = regularsResult.data || [];
   const cancelledSessions = cancelledResult.data || [];
   const recurringEvents = generateRecurringEvents(acceptedRegulars, cancelledSessions);

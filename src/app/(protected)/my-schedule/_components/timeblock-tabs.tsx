@@ -25,7 +25,7 @@ const TimeblockTabs = ({
                        }: {
   data: SessionData[];
   availableSlots: AvailableSlotData[];
-  schedule: ScheduleData | null;
+  schedule: ScheduleData;
   initialTab?: string;
   studentsInfo: Record<string, StudentInfo | null>;
 }) => {
@@ -59,7 +59,12 @@ const TimeblockTabs = ({
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {currentTab === "calendar" && <Calendar data={data} availableSlots={availableSlots} studentsInfo={studentsInfo}/>}
-        {currentTab === "templates" && schedule && <ScheduleBuilder schedule={schedule} studentsInfo={studentsInfo}/>}
+        {currentTab === "templates" && (
+          <ScheduleBuilder
+            schedule={schedule}
+            studentsInfo={studentsInfo}
+          />
+        )}
         {currentTab === "add-event" && <SessionScheduler data={data} availableSlots={availableSlots}/>}
       </div>
     </div>
