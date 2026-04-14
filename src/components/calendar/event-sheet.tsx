@@ -76,7 +76,6 @@ export const EventSheet = ({
 
   const startTime = event ? new Date(event.startTime) : null;
   const endTime = startTime ? new Date(startTime.getTime() + (event?.duration ?? 0) * 60000) : null;
-  const isPast = startTime ? startTime < new Date() : false;
 
   const initials = student?.name
     ? student.name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()
@@ -88,15 +87,21 @@ export const EventSheet = ({
     (event?.status === "booked" && isFutureSession && !isRegularsSession);
 
   useEffect(() => {
-    if (!event?.startTime || new Date(event.startTime) <= new Date()) return;
+    if (!event?.startTime) return;
+    const endTime = new Date(event.startTime).getTime() + (event?.duration ?? 0) * 60000;
+    if (endTime <= Date.now()) return;
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
-  }, [event?.startTime]);
+  }, [event?.startTime, event?.duration]);
 
   const timeLeft = useMemo(() => {
     if (!event?.startTime) return null;
     const diffMs = new Date(event.startTime).getTime() - currentTime.getTime();
-    if (diffMs <= 0) return "Starting now";
+    if (diffMs <= 0) {
+      const endMs = new Date(event.startTime).getTime() + (event?.duration ?? 0) * 60000;
+      if (currentTime.getTime() >= endMs) return "Completed";
+      return "In progress";
+    }
 
     const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffSeconds / 60);
@@ -111,7 +116,7 @@ export const EventSheet = ({
     if (diffHours > 0) return `${diffHours}h ${minutes}m`;
     if (diffMinutes > 0) return `${diffMinutes}m ${seconds}s`;
     return `${diffSeconds}s`;
-  }, [event?.startTime, currentTime]);
+  }, [event?.startTime, event?.duration, currentTime]);
 
 
   const onDeleteAvailableSlot = () => {
@@ -249,7 +254,7 @@ export const EventSheet = ({
                 </div>
 
                 {/* Countdown / status chip */}
-                {!isPast && !isAvailableSlot && timeLeft && (
+                {!isAvailableSlot && timeLeft && (
                   <div className="flex items-center gap-2">
                     <IconClock size={14} className="text-muted-foreground"/>
                     <p
@@ -258,12 +263,6 @@ export const EventSheet = ({
                     >
                       {timeLeft}
                     </p>
-                  </div>
-                )}
-                {isPast && !isAvailableSlot && (
-                  <div
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border/50">
-                    <span className="text-xs font-semibold text-muted-foreground">Completed</span>
                   </div>
                 )}
               </div>
