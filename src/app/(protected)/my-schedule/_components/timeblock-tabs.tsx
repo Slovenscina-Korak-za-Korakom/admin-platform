@@ -7,7 +7,7 @@ import {IconCalendar, IconCalendarEvent, IconCalendarPlus,} from "@tabler/icons-
 import ScheduleBuilder from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import Calendar from "@/components/calendar/calendar";
 import SessionScheduler from "@/app/(protected)/my-schedule/_components/session-scheduler";
-import {AvailableSlotData, ScheduleData, SessionData} from "@/components/calendar/types";
+import {AvailableSlotData, ScheduleData, SessionData, StudentInfo} from "@/components/calendar/types";
 
 const TABS = [
   {value: "calendar", hex: "#2563eb", lightColor: "#eff6ff", Icon: IconCalendar, label: "Calendar View"},
@@ -21,11 +21,13 @@ const TimeblockTabs = ({
                          availableSlots,
                          initialTab,
                          schedule,
+                         studentsInfo,
                        }: {
   data: SessionData[];
   availableSlots: AvailableSlotData[];
   schedule: ScheduleData | null;
   initialTab?: string;
+  studentsInfo: Record<string, StudentInfo | null>;
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,7 +58,7 @@ const TimeblockTabs = ({
       </AnimatedButtonGroup>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {currentTab === "calendar" && <Calendar data={data} availableSlots={availableSlots}/>}
+        {currentTab === "calendar" && <Calendar data={data} availableSlots={availableSlots} studentsInfo={studentsInfo}/>}
         {currentTab === "templates" && schedule && <ScheduleBuilder schedule={schedule}/>}
         {currentTab === "add-event" && <SessionScheduler data={data} availableSlots={availableSlots}/>}
       </div>

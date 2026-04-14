@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import {useState, useRef, useEffect, useCallback} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {IconCalendar} from "@tabler/icons-react";
 import {useCalendarResize} from "@/hooks/use-calendar-resize";
@@ -9,20 +9,19 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
-import {
-  EventClickArg,
-  SessionData,
-  StudentInfo,
-  AvailableSlotData,
-} from "@/components/calendar/types";
+import {AvailableSlotData, EventClickArg, SessionData, StudentInfo} from "@/components/calendar/types";
 import {CalendarControls} from "@/components/calendar/calendar-controls";
 import {EventSheet} from "@/components/calendar/event-sheet";
 import "@/components/calendar/calendar-styles.css";
 import {getStatusColor} from "./calendar-functions";
-import {getStudentInfo, deleteAvailableSlot} from "@/actions/timeblocks";
+import {deleteAvailableSlot} from "@/actions/timeblocks";
 import {getSessionColor} from "@/lib/session-colors";
 
-export default function Calendar({data, availableSlots = []}: { data: SessionData[]; availableSlots?: AvailableSlotData[] }) {
+export default function Calendar({data, availableSlots = [], studentsInfo}: {
+  data: SessionData[];
+  availableSlots?: AvailableSlotData[];
+  studentsInfo: Record<string, StudentInfo | null>;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -50,48 +49,9 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
   }));
   const [currentView, setCurrentView] = useState(initialFullCalendarView);
   const [showWeekends, setShowWeekends] = useState(true);
-  const [studentsInfo, setStudentsInfo] = useState<
-    Record<string, StudentInfo | null>
-  >({});
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useCalendarResize(calendarRef);
-
-  // Fetch student names for all unique studentIds
-  useEffect(() => {
-    const fetchStudentsInfo = async () => {
-      const uniqueStudentIds = Array.from(
-        new Set(data.map((session) => session.studentId).filter(Boolean))
-      );
-
-      const nameMap: Record<string, StudentInfo | null> = {};
-
-      await Promise.all(
-        uniqueStudentIds.map(async (studentId) => {
-          try {
-            const result = await getStudentInfo(studentId);
-            if (result.status === 200 && result.user) {
-              nameMap[studentId] = result.user;
-            } else {
-              nameMap[studentId] = null;
-            }
-          } catch (error) {
-            console.error(
-              `Failed to fetch student info for ${studentId}:`,
-              error
-            );
-            nameMap[studentId] = null;
-          }
-        })
-      );
-
-      setStudentsInfo(nameMap);
-    };
-
-    if (data.length > 0) {
-      fetchStudentsInfo();
-    }
-  }, [data]);
 
   const bookedEvents = data.map((session) => {
     const studentInfo = session.studentId
@@ -121,14 +81,24 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
     };
   });
 
-  const availableEvents = availableSlots.map((slot) => {
+  const bookedKeys = new Set(
+    data.map((s) => `${new Date(s.startTime).getTime()}-${s.sessionType}-${s.duration}`)
+  );
+
+  const filteredAvailableSlots = availableSlots.filter((slot) => {
+    if (!slot.startTime) return false;
+    const key = `${new Date(slot.startTime).getTime()}-${slot.sessionType}-${slot.duration}`;
+    return !bookedKeys.has(key);
+  });
+
+  const availableEvents = filteredAvailableSlots.map((slot) => {
     const color = getSessionColor(slot.sessionType);
     const title =
       slot.sessionType === "group"
         ? "Group"
         : slot.sessionType === "test"
-        ? "Test"
-        : "Individual";
+          ? "Test"
+          : "Individual";
     return {
       id: `available-${slot.id}`,
       title,
@@ -404,6 +374,9 @@ export default function Calendar({data, availableSlots = []}: { data: SessionDat
             },
           }}
           allDaySlot={false}
+          scrollTime="09:00:00"
+          slotDuration="00:15:00"
+          slotLabelFormat={{hour: "2-digit", minute: "2-digit", hour12: false}}
           events={events}
           eventClick={handleEventClick}
           editable={true}

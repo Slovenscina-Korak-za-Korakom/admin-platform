@@ -9,9 +9,11 @@ import {
   getAcceptedRegulars,
   getCancelledSessions,
   getAvailableSlots,
-  getUserSchedule
+  getUserSchedule,
+  getStudentInfo,
 } from "@/actions/timeblocks";
 import { fromZonedTime } from "date-fns-tz";
+import { StudentInfo } from "@/components/calendar/types";
 
 type SearchParams = {
   tab?: string;
@@ -29,6 +31,7 @@ function generateRecurringEvents(
     duration: number;
     location: string;
     timezone: string | null;
+    updatedAt: Date;
   }[],
   cancelledSessions: {
     invitationId: number;
@@ -52,7 +55,7 @@ function generateRecurringEvents(
 
   for (const inv of invitations) {
     // Find the first occurrence on or after today (using UTC day-of-week)
-    const current = new Date(today);
+    const current = new Date(inv.updatedAt);
     const currentDayOfWeek = current.getUTCDay();
     let daysUntil = inv.dayOfWeek - currentDayOfWeek;
     if (daysUntil < 0) daysUntil += 7;
@@ -126,10 +129,25 @@ export default async function TimeblocksPage({
   const data = [...timeblocksData, ...recurringEvents];
   const availableSlots = (availableSlotsResult.data || []) as AvailableSlotData[];
 
+  const uniqueStudentIds = Array.from(
+    new Set(data.map((s) => s.studentId).filter(Boolean))
+  );
+  const studentsInfoEntries = await Promise.all(
+    uniqueStudentIds.map(async (studentId) => {
+      try {
+        const result = await getStudentInfo(studentId);
+        return [studentId, result.status === 200 && result.user ? result.user : null] as [string, StudentInfo | null];
+      } catch {
+        return [studentId, null] as [string, StudentInfo | null];
+      }
+    })
+  );
+  const studentsInfo: Record<string, StudentInfo | null> = Object.fromEntries(studentsInfoEntries);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 p-5 space-y-6 w-full h-full">
       <ActivationWrapper isActivated={isActivated} />
-      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} schedule={scheduleData} />
+      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} schedule={scheduleData} studentsInfo={studentsInfo} />
     </div>
   );
 }
