@@ -3,15 +3,11 @@
 import React, {useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
-import {
-  IconCalendar,
-  IconCalendarEvent,
-  IconCalendarPlus,
-} from "@tabler/icons-react";
+import {IconCalendar, IconCalendarEvent, IconCalendarPlus,} from "@tabler/icons-react";
 import ScheduleBuilder from "@/app/(protected)/my-schedule/_components/schedule-builder";
 import Calendar from "@/components/calendar/calendar";
 import SessionScheduler from "@/app/(protected)/my-schedule/_components/session-scheduler";
-import {SessionData, AvailableSlotData} from "@/components/calendar/types";
+import {AvailableSlotData, ScheduleData, SessionData} from "@/components/calendar/types";
 
 const TABS = [
   {value: "calendar", hex: "#2563eb", lightColor: "#eff6ff", Icon: IconCalendar, label: "Calendar View"},
@@ -19,13 +15,16 @@ const TABS = [
   {value: "add-event", hex: "#259feb", lightColor: "#eff6ff", Icon: IconCalendarPlus, label: "Add Event"},
 ] as const;
 
+
 const TimeblockTabs = ({
                          data,
                          availableSlots,
                          initialTab,
+                         schedule,
                        }: {
   data: SessionData[];
   availableSlots: AvailableSlotData[];
+  schedule: ScheduleData | null;
   initialTab?: string;
 }) => {
   const router = useRouter();
@@ -58,7 +57,7 @@ const TimeblockTabs = ({
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {currentTab === "calendar" && <Calendar data={data} availableSlots={availableSlots}/>}
-        {currentTab === "templates" && <ScheduleBuilder/>}
+        {currentTab === "templates" && schedule && <ScheduleBuilder schedule={schedule}/>}
         {currentTab === "add-event" && <SessionScheduler data={data} availableSlots={availableSlots}/>}
       </div>
     </div>

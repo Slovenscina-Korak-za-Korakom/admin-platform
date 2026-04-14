@@ -1,26 +1,20 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState,} from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import {DateSelectArg, EventClickArg} from "@fullcalendar/core";
-import type {EventDropArg, EventResizeArg} from "@/components/calendar/types";
+import type {EventDropArg, EventResizeArg, ScheduleData} from "@/components/calendar/types";
 import {Button} from "@/components/ui/button";
 import {getSessionColor} from "@/lib/session-colors";
 import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
-import {IconCheck, IconLoader2, IconAlertTriangle, IconCalendar} from "@tabler/icons-react";
+import {IconAlertTriangle, IconCalendar, IconCheck, IconLoader2} from "@tabler/icons-react";
+import type {Student} from "./schedule-sheet";
 import {ScheduleSheet} from "./schedule-sheet";
 import {ScheduleConfirmDialog} from "./schedule-confirm-dialog";
 import {toast} from "sonner";
-import {createSchedule, getUserSchedule, getStudents, removeRegularScheduleBySlot} from "@/actions/timeblocks";
-import type {Student} from "./schedule-sheet";
+import {createSchedule, getStudents, removeRegularScheduleBySlot} from "@/actions/timeblocks";
 import "@/components/calendar/calendar-styles.css";
 import {useCalendarResize} from "@/hooks/use-calendar-resize";
 import {Badge} from "@/components/ui/badge";
@@ -33,7 +27,6 @@ interface TimeSlot {
   sessionType: string;
   location: string;
   description?: string;
-  color?: string;
   email?: string;
   studentClerkId?: string;
   pricePerSession?: number;
@@ -60,10 +53,10 @@ export interface CalendarEvent {
 export interface SlotDiff {
   added: CalendarEvent[];
   removed: CalendarEvent[];
-  modified: {before: CalendarEvent; after: CalendarEvent}[];
+  modified: { before: CalendarEvent; after: CalendarEvent }[];
 }
 
-const ScheduleBuilder = () => {
+const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useCalendarResize(calendarRef);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -107,8 +100,9 @@ const ScheduleBuilder = () => {
 
   // Convert DaySchedule[] to CalendarEvent[]
   const convertDaySchedulesToEvents = useCallback(
-    (daySchedules: DaySchedule[]): CalendarEvent[] => {
+    (schedule: ScheduleData): CalendarEvent[] => {
       const calendarEvents: CalendarEvent[] = [];
+      const daySchedules = schedule.schedule as DaySchedule[];
 
       daySchedules.forEach((daySchedule) => {
         daySchedule.timeSlots.forEach((timeSlot) => {
@@ -137,23 +131,12 @@ const ScheduleBuilder = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [scheduleResult, studentsResult] = await Promise.all([
-          getUserSchedule(),
-          getStudents(),
-        ]);
+        const studentsResult = await getStudents();
 
-        if (scheduleResult.status === 200 && scheduleResult.data) {
-          const daySchedules = scheduleResult.data as DaySchedule[];
-          const loadedEvents = convertDaySchedulesToEvents(daySchedules);
-          setEvents(loadedEvents);
-          setOriginalEvents(loadedEvents);
-          if (scheduleResult.timezone) setTimezone(scheduleResult.timezone);
-        } else if (scheduleResult.status === 404) {
-          // No schedule found, start with an empty state
-          setEvents([]);
-        } else {
-          toast.error("Failed to load schedule");
-        }
+        const loadedEvents = convertDaySchedulesToEvents(schedule);
+        setEvents(loadedEvents);
+        setOriginalEvents(loadedEvents);
+        setTimezone(schedule.timezone);
 
         if (studentsResult.status === 200) {
           setStudents(studentsResult.data);
@@ -167,7 +150,7 @@ const ScheduleBuilder = () => {
     };
 
     loadData();
-  }, [convertDaySchedulesToEvents]);
+  }, [convertDaySchedulesToEvents, schedule]);
 
   const daysOfWeek = [
     {value: 1, label: "Monday", short: "Mon"},
@@ -495,7 +478,7 @@ const ScheduleBuilder = () => {
 
     const rawAdded = events.filter((e) => !originalMap.has(e.id));
     const rawRemoved = originalEvents.filter((e) => !currentMap.has(e.id));
-    const modified: {before: CalendarEvent; after: CalendarEvent}[] = [];
+    const modified: { before: CalendarEvent; after: CalendarEvent }[] = [];
 
     for (const current of events) {
       const original = originalMap.get(current.id);
@@ -568,15 +551,15 @@ const ScheduleBuilder = () => {
 
     const newRegularSlotIds: string[] | undefined = originalEvents !== null
       ? (scheduleDiff?.added ?? [])
-          .filter((e) => e.sessionType === "regular")
-          .map((e) => e.id)
+        .filter((e) => e.sessionType === "regular")
+        .map((e) => e.id)
       : undefined;
 
     setIsSubmitting(true);
     setIsConfirmDialogOpen(false);
 
     try {
-      const result = await createSchedule(daySchedules, newRegularSlotIds, timezone);
+      const result = await createSchedule(daySchedules, timezone, newRegularSlotIds);
 
       if (result?.success) {
         // Remove regular sessions that the user confirmed
@@ -882,7 +865,9 @@ const ScheduleBuilder = () => {
       {/* ── Regular session delete warning ── */}
       <Dialog
         open={pendingDeleteRegular !== null}
-        onOpenChange={(open) => { if (!open) setPendingDeleteRegular(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteRegular(null);
+        }}
       >
         <DialogContent className="sm:max-w-[400px]">
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -923,7 +908,11 @@ const ScheduleBuilder = () => {
         onToggleRemoval={(id) =>
           setConfirmedRemovals((prev) => {
             const next = new Set(prev);
-            if (next.has(id)) { next.delete(id); } else { next.add(id); }
+            if (next.has(id)) {
+              next.delete(id);
+            } else {
+              next.add(id);
+            }
             return next;
           })
         }

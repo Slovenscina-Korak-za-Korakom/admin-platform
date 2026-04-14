@@ -83,7 +83,7 @@ export const schedulesTable = pgTable("schedules", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   ownerId: varchar({length: 255}).notNull(),
   schedule: jsonb().notNull(),
-  timezone: varchar({length: 100}), // IANA name, e.g. 'America/Los_Angeles'
+  timezone: varchar({length: 100}).notNull(), // IANA name, e.g. 'America/Los_Angeles'
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

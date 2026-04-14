@@ -1,10 +1,16 @@
 import TimeblockTabs from "@/app/(protected)/my-schedule/_components/timeblock-tabs";
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
-import { SessionData, AvailableSlotData } from "@/components/calendar/types";
+import {SessionData, AvailableSlotData} from "@/components/calendar/types";
 import { checkTutorActivation } from "@/actions/admin-actions";
 import { ActivationWrapper } from "@/app/(protected)/my-schedule/_components/activation-wrapper";
-import { getScheduleData, getAcceptedRegulars, getCancelledSessions, getAvailableSlots } from "@/actions/timeblocks";
+import {
+  getScheduleData,
+  getAcceptedRegulars,
+  getCancelledSessions,
+  getAvailableSlots,
+  getUserSchedule
+} from "@/actions/timeblocks";
 import { fromZonedTime } from "date-fns-tz";
 
 type SearchParams = {
@@ -104,14 +110,16 @@ export default async function TimeblocksPage({
   const params = await searchParams;
   const isActivated = (await checkTutorActivation(userId)) as boolean;
 
-  const [scheduleResult, regularsResult, cancelledResult, availableSlotsResult] = await Promise.all([
+  const [scheduleResult, regularsResult, cancelledResult, availableSlotsResult, tutorSchedule] = await Promise.all([
     getScheduleData(),
     getAcceptedRegulars(),
     getCancelledSessions(),
     getAvailableSlots(),
+    getUserSchedule(),
   ]);
 
   const timeblocksData = (scheduleResult.data || []) as SessionData[];
+  const scheduleData = tutorSchedule.data;
   const acceptedRegulars = regularsResult.data || [];
   const cancelledSessions = cancelledResult.data || [];
   const recurringEvents = generateRecurringEvents(acceptedRegulars, cancelledSessions);
@@ -121,7 +129,7 @@ export default async function TimeblocksPage({
   return (
     <div className="flex flex-col flex-1 min-h-0 p-5 space-y-6 w-full h-full">
       <ActivationWrapper isActivated={isActivated} />
-      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} />
+      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} schedule={scheduleData} />
     </div>
   );
 }

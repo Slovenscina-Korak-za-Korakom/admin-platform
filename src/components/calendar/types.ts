@@ -32,6 +32,14 @@ export interface SessionData {
   invitationId?: number;
 }
 
+export interface ScheduleData {
+  id: number;
+  schedule: unknown;
+  timezone: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface AvailableSlotData {
   id: number;
   startTime: Date;

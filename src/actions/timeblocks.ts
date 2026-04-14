@@ -2,9 +2,16 @@
 "use server";
 
 import db from "@/db";
-import {schedulesTable, timeblocksTable, tutorsTable, regularInvitationsTable, cancelledRegularSessionsTable, availableSlotsTable} from "@/db/schema";
+import {
+  availableSlotsTable,
+  cancelledRegularSessionsTable,
+  regularInvitationsTable,
+  schedulesTable,
+  timeblocksTable,
+  tutorsTable
+} from "@/db/schema";
 import {auth, clerkClient} from "@clerk/nextjs/server";
-import {eq, desc, and} from "drizzle-orm";
+import {and, desc, eq} from "drizzle-orm";
 import {randomUUID} from "crypto";
 import {resend} from "@/lib/resend";
 import {InvitationEmail} from "@/emails/invitation-email";
@@ -22,7 +29,7 @@ function getBaseUrl(): string {
   return "http://localhost:3001";
 }
 
-export const createSchedule = async (data: any, newRegularSlotIds?: string[], timezone?: string) => {
+export const createSchedule = async (data: any, timezone: string, newRegularSlotIds?: string[]) => {
   const {userId} = await auth();
   if (!userId) {
     return {success: false, error: "Unauthorized"};
@@ -48,7 +55,7 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[], ti
         .update(schedulesTable)
         .set({
           schedule: data,
-          timezone: timezone ?? null,
+          timezone: timezone,
           updatedAt: new Date(),
         })
         .where(eq(schedulesTable.ownerId, userId));
@@ -57,7 +64,7 @@ export const createSchedule = async (data: any, newRegularSlotIds?: string[], ti
       await db.insert(schedulesTable).values({
         ownerId: userId,
         schedule: data,
-        timezone: timezone ?? null,
+        timezone: timezone,
       });
     }
 
@@ -194,7 +201,7 @@ export const cancelSession = async (sessionId: number) => {
       try {
         const client = await clerkClient();
         await client.users.updateUserMetadata(session[0].studentId, {
-          privateMetadata: { testSession: null },
+          privateMetadata: {testSession: null},
         });
 
       } catch (e) {
@@ -278,24 +285,23 @@ export const getUserSchedule = async () => {
   }
 
   try {
-    const schedule = await db
-      .select({
-        id: schedulesTable.id,
-        schedule: schedulesTable.schedule,
-        timezone: schedulesTable.timezone,
-        createdAt: schedulesTable.createdAt,
-        updatedAt: schedulesTable.updatedAt,
-      })
-      .from(schedulesTable)
-      .where(eq(schedulesTable.ownerId, userId))
-      .orderBy(desc(schedulesTable.updatedAt))
-      .limit(1);
+    const schedule = await db.query.schedulesTable.findFirst({
+      columns: {
+        id: true,
+        schedule: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      where: eq(schedulesTable.ownerId, userId),
+      orderBy: desc(schedulesTable.updatedAt)
 
-    if (schedule.length === 0) {
-      return {data: null, timezone: null, status: 404};
+    })
+    if (!schedule) {
+      return {data: null, status: 404};
     }
 
-    return {data: schedule[0].schedule, timezone: schedule[0].timezone, status: 200};
+    return {data: schedule, status: 200};
   } catch (error) {
     console.error("Error fetching user schedule:", error);
     return {message: "Error fetching user schedule", data: null, status: 500};
