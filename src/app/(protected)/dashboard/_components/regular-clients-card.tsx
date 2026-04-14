@@ -3,7 +3,7 @@
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {IconAlertTriangle, IconCircleCheck, IconUsers} from "@tabler/icons-react";
 import {formatDuration} from "@/app/(protected)/dashboard/_components/tutor-dashboard";
-import {Avatar, AvatarFallback} from "@/components/ui/avatar";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {RegularSessionsWithName} from "@/actions/admin-actions";
 import {Badge} from "@/components/ui/badge";
 import {getDstChangeInfo} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
@@ -59,7 +59,8 @@ export const RegularClientsCard = ({
                   key={client.id}
                   className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-muted/40 transition-colors group"
                 >
-                  <Avatar className="h-7 w-7 rounded-lg shrink-0">
+                  <Avatar className="h-7 w-7 shrink-0">
+                    <AvatarImage src={client.studentAvatar} alt={`${client.studentName}'s profile picture`} />
                     <AvatarFallback
                       className="rounded-lg text-white text-xs font-bold"
                       style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}

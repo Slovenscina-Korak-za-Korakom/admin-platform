@@ -3,7 +3,7 @@
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
 import {cancelledRegularSessionsTable, regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
-import {and, asc, eq, gt, gte, lt, sql} from "drizzle-orm";
+import {and, asc, count, eq, gt, gte, lt, sql, sum} from "drizzle-orm";
 import {addDays, startOfDay} from "date-fns";
 import {fromZonedTime, toZonedTime} from "date-fns-tz";
 
@@ -13,6 +13,7 @@ export interface TodaySessions {
   tutorId: number;
   studentId: string;
   studentName: string;
+  studentAvatar: string;
   startTime: Date;
   type: string;
   duration: number;
@@ -22,6 +23,7 @@ export interface TodaySessions {
 export interface AllCancelledSessions {
   studentId: string;
   studentName: string;
+  studentAvatar: string;
   reason: string;
   startTime: Date;
   type: string;
@@ -45,10 +47,10 @@ export interface RegularSessionsWithName {
   startTime: string; // wall-clock HH:mm in `timezone`
   status: string;
   duration: number;
-  color: string | null;
   timezone: string | null; // IANA name
   updatedAt: Date;
   studentName: string;
+  studentAvatar: string;
 }
 
 export interface RegularSession {
@@ -59,7 +61,6 @@ export interface RegularSession {
   dayOfWeek: number;
   startTime: string;
   duration: number;
-  color: string | null;
   updatedAt: Date;
 }
 
@@ -192,8 +193,8 @@ export const getTutorHoursByDate = async (date: Date | undefined) => {
           tutorColor: tutorsTable.color,
           tutorLevel: tutorsTable.level,
           sessionType: timeblocksTable.sessionType,
-          totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
-          sessionCount: sql<number>`COUNT(*)::int`,
+          totalMinutes: sum(timeblocksTable.duration),
+          sessionCount: count(),
         })
         .from(timeblocksTable)
         .where(
@@ -229,7 +230,7 @@ export const getTutorHoursByDate = async (date: Date | undefined) => {
       }
       tutorMap.get(row.tutorId)!.sessions.push({
         sessionType: row.sessionType,
-        totalMinutes: row.totalMinutes,
+        totalMinutes: Number(row.totalMinutes) || 0,
         sessionCount: row.sessionCount,
       });
 
@@ -259,8 +260,8 @@ export const getDailySessionStats = async (date: Date | undefined) => {
         tutorId: tutorsTable.id,
         tutorName: tutorsTable.name,
         tutorColor: tutorsTable.color,
-        sessionCount: sql<number>`COUNT(*)::int`,
-        totalMinutes: sql<number>`SUM(${timeblocksTable.duration})::int`,
+        sessionCount: count(),
+        totalMinutes: sum(timeblocksTable.duration),
       })
       .from(timeblocksTable)
       .where(and(
@@ -277,7 +278,8 @@ export const getDailySessionStats = async (date: Date | undefined) => {
       )
       .orderBy(asc(sql`TO_CHAR(${timeblocksTable.startTime} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`));
 
-    return {message: "Success", status: 200, data: results as DailySessionStat[]};
+    const data = results.map(r => ({...r, totalMinutes: Number(r.totalMinutes) || 0}));
+    return {message: "Success", status: 200, data: data as DailySessionStat[]};
   } catch (error) {
     console.error(error);
     return {message: "Error fetching daily session stats", status: 500, data: [] as DailySessionStat[]};
@@ -300,7 +302,6 @@ export const getRegularSessions = async () => {
       dayOfWeek: regularInvitationsTable.dayOfWeek,
       startTime: regularInvitationsTable.startTime,
       duration: regularInvitationsTable.duration,
-      color: regularInvitationsTable.color,
       updatedAt: regularInvitationsTable.updatedAt,
     })
       .from(regularInvitationsTable)
@@ -350,7 +351,6 @@ export const getAllRegularSessions = async () => {
       startTime: regularInvitationsTable.startTime,
       status: regularInvitationsTable.status,
       duration: regularInvitationsTable.duration,
-      color: regularInvitationsTable.color,
       timezone: regularInvitationsTable.timezone,
       updatedAt: regularInvitationsTable.updatedAt,
     })
@@ -360,10 +360,11 @@ export const getAllRegularSessions = async () => {
 
 
     const studentIds = [...new Set(regularSessions.map(s => s.studentId).filter((id): id is string => id !== null))];
-    const userMap = await getUserNames(studentIds);
+    const userMap = await getUserInfo(studentIds);
     const data = regularSessions.map(s => ({
       ...s,
-      studentName: s.studentId ? (userMap.get(s.studentId) ?? "Unknown") : "Unknown",
+      studentName: s.studentId ? (userMap.get(s.studentId)?.name ?? "Unknown") : "Unknown",
+      studentAvatar: s.studentId ? (userMap.get(s.studentId)?.avatar ?? "") : "",
     }));
 
     return {
@@ -383,10 +384,10 @@ export const getAllRegularSessions = async () => {
 }
 
 
-export const getUserNames = async (studentIds: string[] ): Promise<Map<string, string>> => {
+export const getUserInfo = async (studentIds: string[]): Promise<Map<string, { name: string; avatar: string }>> => {
   const client = await clerkClient();
   const {data: users} = await client.users.getUserList({userId: studentIds});
-  return new Map(users.map(u => [u.id, u.fullName ?? "Unknown"])); // TODO: Get avatar link as well
+  return new Map(users.map(u => [u.id, {name: u.fullName ?? "Unknown", avatar: u.imageUrl}]));
 }
 
 export const getTodaySessions = async (timezone: string = "UTC") => {
@@ -446,11 +447,12 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
       ...sessions.map(s => s.studentId),
       ...regularSessions.map(s => s.studentId).filter((id): id is string => id !== null),
     ])];
-    const userMap = await getUserNames(allStudentIds);
+    const userMap = await getUserInfo(allStudentIds);
 
     const timeblocksData = sessions.map(s => ({
       ...s,
-      studentName: userMap.get(s.studentId) ?? "Unknown",
+      studentName: userMap.get(s.studentId)?.name ?? "Unknown",
+      studentAvatar: userMap.get(s.studentId)?.avatar ?? "",
     }));
 
     const regularData = regularSessions.map(s => {
@@ -463,7 +465,8 @@ export const getTodaySessions = async (timezone: string = "UTC") => {
         id: s.id,
         tutorId: s.tutorId,
         studentId: s.studentId ?? "",
-        studentName: s.studentId ? (userMap.get(s.studentId) ?? "Unknown") : "Unknown",
+        studentName: s.studentId ? (userMap.get(s.studentId)?.name ?? "Unknown") : "Unknown",
+        studentAvatar: s.studentId ? (userMap.get(s.studentId)?.avatar ?? "") : "",
         startTime: startTimeUtc,
         type: "regular",
         duration: s.duration,
@@ -496,7 +499,6 @@ export const getAllCancelledSessions = async () => {
       studentId: timeblocksTable.studentId,
       startTime: timeblocksTable.startTime,
       type: timeblocksTable.sessionType,
-      reason: sql<string>`''`,
       cancelledAt: timeblocksTable.updatedAt
     })
       .from(timeblocksTable)
@@ -510,7 +512,6 @@ export const getAllCancelledSessions = async () => {
     const regularData = await db.select({
       studentId: regularInvitationsTable.studentClerkId,
       startTime: cancelledRegularSessionsTable.cancelledDate,
-      type: sql<string>`'regular'`,
       reason: cancelledRegularSessionsTable.reason,
       cancelledAt: cancelledRegularSessionsTable.createdAt,
     })
@@ -523,17 +524,21 @@ export const getAllCancelledSessions = async () => {
       ))
 
     const studentIdsTimeblock = [...new Set(timeblockData.map(s => s.studentId))];
-    const userMapTimeblock = await getUserNames(studentIdsTimeblock);
+    const userMapTimeblock = await getUserInfo(studentIdsTimeblock);
     const dataTimeblock = timeblockData.map(s => ({
       ...s,
-      studentName: userMapTimeblock.get(s.studentId) ?? "Unknown",
+      reason: "",
+      studentName: userMapTimeblock.get(s.studentId)?.name ?? "Unknown",
+      studentAvatar: userMapTimeblock.get(s.studentId)?.avatar ?? "",
     }));
 
     const studentIdsRegular = [...new Set(regularData.map(s => s.studentId).filter((id): id is string => id !== null))];
-    const userMapRegular = await getUserNames(studentIdsRegular);
-    const dataRegular= regularData.map(s => ({
+    const userMapRegular = await getUserInfo(studentIdsRegular);
+    const dataRegular = regularData.map(s => ({
       ...s,
-      studentName: s.studentId ? (userMapRegular.get(s.studentId) ?? "Unknown") : "Unknown",
+      type: "regular",
+      studentName: s.studentId ? (userMapRegular.get(s.studentId)?.name ?? "Unknown") : "Unknown",
+      studentAvatar: s.studentId ? (userMapRegular.get(s.studentId)?.avatar ?? "") : "",
     }));
 
 
