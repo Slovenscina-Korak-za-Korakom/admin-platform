@@ -10,11 +10,11 @@ import {Button} from "@/components/ui/button";
 import {getSessionColor} from "@/lib/session-colors";
 import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
 import {IconAlertTriangle, IconCalendar, IconCheck, IconLoader2} from "@tabler/icons-react";
-import type {Student} from "./schedule-sheet";
 import {ScheduleSheet} from "./schedule-sheet";
 import {ScheduleConfirmDialog} from "./schedule-confirm-dialog";
 import {toast} from "sonner";
-import {createSchedule, getStudents, removeRegularScheduleBySlot} from "@/actions/timeblocks";
+import {createSchedule, removeRegularScheduleBySlot} from "@/actions/timeblocks";
+import {StudentInfo} from "@/components/calendar/types";
 import "@/components/calendar/calendar-styles.css";
 import {useCalendarResize} from "@/hooks/use-calendar-resize";
 import {Badge} from "@/components/ui/badge";
@@ -56,7 +56,7 @@ export interface SlotDiff {
   modified: { before: CalendarEvent; after: CalendarEvent }[];
 }
 
-const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
+const ScheduleBuilder = ({schedule, studentsInfo}: { schedule: ScheduleData; studentsInfo: Record<string, StudentInfo | null> }) => {
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useCalendarResize(calendarRef);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -89,7 +89,6 @@ const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [students, setStudents] = useState<Student[]>([]);
   const [timezone, setTimezone] = useState<string>(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone
   );
@@ -131,16 +130,10 @@ const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const studentsResult = await getStudents();
-
         const loadedEvents = convertDaySchedulesToEvents(schedule);
         setEvents(loadedEvents);
         setOriginalEvents(loadedEvents);
         setTimezone(schedule.timezone);
-
-        if (studentsResult.status === 200) {
-          setStudents(studentsResult.data);
-        }
       } catch (error) {
         console.error("Error loading data:", error);
         toast.error("Failed to load schedule");
@@ -607,12 +600,12 @@ const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
           color: color,
           email: event.email,
           studentName: event.studentClerkId
-            ? students.find(s => s.clerkId === event.studentClerkId)?.name
+            ? (studentsInfo[event.studentClerkId]?.name ?? undefined)
             : undefined,
         },
       };
     });
-  }, [events, getDateForDayOfWeek, students]);
+  }, [events, getDateForDayOfWeek, studentsInfo]);
 
   const totalSlots = events.length;
 
@@ -859,7 +852,6 @@ const ScheduleBuilder = ({schedule}: { schedule: ScheduleData }) => {
         onDelete={handleDeleteSlot}
         onCancel={handleCancelSheet}
         getDayLabel={getDayLabel}
-        students={students}
       />
 
       {/* ── Regular session delete warning ── */}

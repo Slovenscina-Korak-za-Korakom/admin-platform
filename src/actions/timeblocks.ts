@@ -332,6 +332,34 @@ export const getStudents = async () => {
   }
 };
 
+export const searchStudents = async (query: string) => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {data: [], status: 401};
+  }
+
+  if (!query || query.trim().length < 2) {
+    return {data: [], status: 200};
+  }
+
+  try {
+    const client = await clerkClient();
+    const users = await client.users.getUserList({query: query.trim(), limit: 10});
+
+    const students = users.data.map((user) => ({
+      clerkId: user.id,
+      email: user.emailAddresses[0]?.emailAddress || "",
+      name: user.fullName || user.firstName || user.emailAddresses[0]?.emailAddress || "Unknown",
+      image: user.imageUrl,
+    }));
+
+    return {data: students, status: 200};
+  } catch (error) {
+    console.error("Error searching students:", error);
+    return {data: [], status: 500};
+  }
+};
+
 export const getAcceptedRegulars = async () => {
   const {userId} = await auth();
   if (!userId) {

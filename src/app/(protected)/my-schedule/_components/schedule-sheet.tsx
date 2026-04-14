@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {Sheet, SheetContent, SheetDescription, SheetTitle,} from "@/components/ui/sheet";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
 import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,} from "@/components/ui/command";
@@ -9,12 +9,14 @@ import {
   IconCalendar,
   IconCheck,
   IconClock,
+  IconLoader2,
   IconSelector,
   IconTrash,
   IconUser,
   IconVideo,
   IconX,
 } from "@tabler/icons-react";
+import {searchStudents} from "@/actions/timeblocks";
 import {calculateEndTime} from "@/app/(protected)/my-schedule/_components/schedule-confirm-dialog";
 import {hexToRgba, SESSION_COLORS} from "@/lib/session-colors";
 import {AnimatedButtonGroup, AnimatedButtonGroupItem} from "@/components/ui/animated-button-group";
@@ -104,7 +106,6 @@ interface ScheduleSheetProps {
   onDelete: () => void;
   onCancel: () => void;
   getDayLabel: (dayValue: number) => string;
-  students: Student[];
 }
 
 export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
@@ -118,9 +119,32 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
                                                               onDelete,
                                                               onCancel,
                                                               getDayLabel,
-                                                              students,
                                                             }) => {
   const [studentSelectOpen, setStudentSelectOpen] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchQuery.trim().length < 2) {
+      setStudents([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const result = await searchStudents(searchQuery);
+        if (result.status === 200) setStudents(result.data);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
 
   const sessionConfig =
     SESSION_TYPE_CONFIG[formData.sessionType as keyof typeof SESSION_TYPE_CONFIG] ||
@@ -235,7 +259,7 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
                   </button>
                 )}
               </div>
-              <Popover open={studentSelectOpen} onOpenChange={setStudentSelectOpen}>
+              <Popover open={studentSelectOpen} onOpenChange={(open) => { setStudentSelectOpen(open); if (!open) { setSearchQuery(""); setStudents([]); } }}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
@@ -268,13 +292,23 @@ export const ScheduleSheet: React.FC<ScheduleSheetProps> = ({
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="center" side="bottom">
-                  <Command className="w-80">
-                    <CommandInput placeholder="Search students…"/>
+                  <Command className="w-80" shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
                     <CommandList>
                       <CommandEmpty>
                         <div className="flex flex-row items-center px-4 gap-1.5">
-                          <IconUser size={16} className="text-muted-foreground/40"/>
-                          <p className="text-sm text-muted-foreground">No students found</p>
+                          {isSearching ? (
+                            <IconLoader2 size={16} className="text-muted-foreground/40 animate-spin"/>
+                          ) : (
+                            <IconUser size={16} className="text-muted-foreground/40"/>
+                          )}
+                          <p className="text-sm text-muted-foreground">
+                            {isSearching ? "Searching…" : searchQuery.trim().length < 2 ? "Type to search students" : "No students found"}
+                          </p>
                         </div>
                       </CommandEmpty>
                       <CommandGroup>

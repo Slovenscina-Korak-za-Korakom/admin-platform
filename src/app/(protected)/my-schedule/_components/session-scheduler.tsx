@@ -23,12 +23,13 @@ import {
   IconCalendarPlus,
   IconCheck,
   IconClock,
+  IconLoader2,
   IconSelector,
   IconUser,
   IconVideo,
   IconX,
 } from "@tabler/icons-react";
-import {createAvailableSlot, createOneTimeSession, getStudents} from "@/actions/timeblocks";
+import {createAvailableSlot, createOneTimeSession, searchStudents} from "@/actions/timeblocks";
 import {getSessionColor, hexToRgba} from "@/lib/session-colors";
 import type {Student} from "./schedule-sheet";
 import {DatePicker} from "@/components/ui/date-picker";
@@ -130,8 +131,32 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
   // Mode: "available" = mark as available slot, "book" = book for a student
   const [mode, setMode] = useState<"available" | "book">("available");
 
-  // Student state
+  // Student search state
   const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchQuery.trim().length < 2) {
+      setStudents([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const result = await searchStudents(searchQuery);
+        if (result.status === 200) setStudents(result.data);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -147,12 +172,6 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
     studentEmail: "",
     color: SESSION_COLORS.individual,
   });
-
-  useEffect(() => {
-    getStudents().then((result) => {
-      if (result.status === 200) setStudents(result.data);
-    });
-  }, []);
 
   // ── Calendar navigation ────────────────────────────────────────────────
 
@@ -218,6 +237,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
 
     setError(null);
     setMode("available");
+    setSelectedStudent(null);
     setFormData({
       date: dateStr,
       startTime,
@@ -317,7 +337,6 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
 
   // ── Derived form values ────────────────────────────────────────────────
 
-  const selectedStudent = students.find((s) => s.clerkId === formData.studentClerkId);
   const endTime = addMinutes(formData.startTime, formData.duration);
   const sessionConfig = SESSION_TYPE_CONFIG[formData.sessionType];
 
@@ -757,7 +776,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                 Student
               </p>
-              <Popover open={studentSelectOpen} onOpenChange={setStudentSelectOpen}>
+              <Popover open={studentSelectOpen} onOpenChange={(open) => { setStudentSelectOpen(open); if (!open) { setSearchQuery(""); setStudents([]); } }}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
@@ -790,13 +809,23 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" side="bottom" align="center">
-                  <Command className="w-80 max-h-48">
-                    <CommandInput placeholder="Search…"/>
+                  <Command className="w-80 max-h-48" shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
                     <CommandList>
                       <CommandEmpty>
                         <div className="flex flex-row items-center px-4 gap-1.5">
-                          <IconUser size={16} className="text-muted-foreground/40"/>
-                          <p className="text-sm text-muted-foreground">No students found</p>
+                          {isSearching ? (
+                            <IconLoader2 size={16} className="text-muted-foreground/40 animate-spin"/>
+                          ) : (
+                            <IconUser size={16} className="text-muted-foreground/40"/>
+                          )}
+                          <p className="text-sm text-muted-foreground">
+                            {isSearching ? "Searching…" : searchQuery.trim().length < 2 ? "Type to search students" : "No students found"}
+                          </p>
                         </div>
                       </CommandEmpty>
                       <CommandGroup>
@@ -812,6 +841,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
                                   studentClerkId: student.clerkId,
                                   studentEmail: student.email,
                                 });
+                                setSelectedStudent(student);
                                 setStudentSelectOpen(false);
                               }}
                               className="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
@@ -843,7 +873,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
               {selectedStudent && (
                 <button
                   type="button"
-                  onClick={() => setFormData({...formData, studentClerkId: "", studentEmail: ""})}
+                  onClick={() => { setFormData({...formData, studentClerkId: "", studentEmail: ""}); setSelectedStudent(null); }}
                   className="cursor-pointer mt-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground flex items-center gap-1 transition-colors"
                 >
                   <IconX className="h-3 w-3"/> Clear
