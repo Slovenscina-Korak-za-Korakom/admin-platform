@@ -19,7 +19,8 @@ import {NavSecondary} from "./nav-secondary";
 export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="border-b border-sidebar-border/50 px-3 py-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
+      <SidebarHeader
+        className="border-b border-sidebar-border/50 px-3 py-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
         <SidebarMenu>
           <SidebarMenuItem className="flex justify-center items-center">
             <SidebarMenuButton
@@ -47,10 +48,10 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-2 py-4 group-data-[collapsible=icon]:p-0">
         <NavMain items={SIDEBAR_DATA.navMain}/>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/50 p-0">
+      <SidebarFooter className="border-t border-sidebar-border/50 px-2 py-3 group-data-[collapsible=icon]:p-0">
         <NavSecondary items={SIDEBAR_DATA.navSecondary}/>
       </SidebarFooter>
     </Sidebar>

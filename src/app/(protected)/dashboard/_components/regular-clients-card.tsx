@@ -65,8 +65,8 @@ export const RegularClientsCard = ({
                       className="rounded-lg text-white text-xs font-bold"
                       style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}
                     >
-                      {client.studentName.split(' ')[0][0]}
-                      {client.studentName.split(' ')[1][0]}
+                      {client.studentName.split(' ')[0]?.[0]}
+                      {client.studentName.split(' ')[1]?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium flex-1 truncate">{client.studentName}</span>
