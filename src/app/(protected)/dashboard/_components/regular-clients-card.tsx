@@ -69,7 +69,7 @@ export const RegularClientsCard = ({
                       {client.studentName.split(' ')[1]?.[0]}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium flex-1 truncate">{client.studentName}</span>
+                  <span className="text-sm font-medium flex-1 truncate capitalize">{client.studentName}</span>
                   {client.status === "accepted" && (
                     <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-100/60 dark:bg-violet-900/30 rounded px-1.5 py-0.5 shrink-0">
                       {sessionCounts.get(client.studentId)?.count ?? 1}×/wk

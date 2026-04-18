@@ -52,7 +52,7 @@ export const TutorDashboard = async ({timezone}: { timezone: string }) => {
         <Card
           className="relative overflow-hidden border-l-4 border-l-sky-500 bg-gradient-to-br from-sky-100/70 via-blue-50/40 to-transparent dark:from-sky-950/40 dark:via-blue-950/20 dark:to-transparent shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sky-900 dark:text-sky-100">Todays Sessions</CardTitle>
+            <CardTitle className="text-sm font-medium text-sky-900 dark:text-sky-100">Today&apos;s Sessions</CardTitle>
             <div className="p-2.5 rounded-lg bg-gradient-to-br from-sky-400/20 to-blue-500/20 border border-sky-400/40">
               <IconCalendarEvent className="h-5 w-5 text-sky-600 dark:text-sky-400"/>
             </div>
