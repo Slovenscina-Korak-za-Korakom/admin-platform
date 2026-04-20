@@ -124,6 +124,9 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
   const [calendarTitle, setCalendarTitle] = useState(
     new Date().toLocaleDateString("en-GB", {month: "long", year: "numeric"})
   );
+  const [timezone] = useState<string>(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
   const [currentView, setCurrentView] = useState("dayGridMonth");
   const [showWeekends, setShowWeekends] = useState(true);
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
@@ -265,6 +268,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
           duration: formData.duration,
           sessionType: formData.sessionType,
           location: formData.location,
+          timezone,
         })
         : await createOneTimeSession({
           date: formData.date,
@@ -273,6 +277,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
           sessionType: formData.sessionType,
           location: formData.location,
           studentClerkId: formData.studentClerkId,
+          timezone,
         });
 
       if (result.status === 200) {
@@ -282,7 +287,7 @@ const SessionScheduler = ({data, availableSlots}: SessionSchedulerProps) => {
         setError(result.message ?? "Failed to save. Please try again.");
       }
     });
-  }, [mode, formData, router, startTransition]);
+  }, [mode, formData, timezone, router, startTransition]);
 
   const closeSheet = useCallback(() => {
     if (isPending) return;

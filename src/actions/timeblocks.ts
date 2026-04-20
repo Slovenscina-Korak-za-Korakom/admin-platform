@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import {and, desc, eq} from "drizzle-orm";
+import {fromZonedTime} from "date-fns-tz";
 import {randomUUID} from "crypto";
 import {resend} from "@/lib/resend";
 import {InvitationEmail} from "@/emails/invitation-email";
@@ -612,6 +613,7 @@ export const createOneTimeSession = async (data: {
   sessionType: "individual" | "group" | "test";
   location: "online" | "classroom";
   studentClerkId: string;
+  timezone: string;
 }) => {
   const {userId} = await auth();
   if (!userId) return {message: "Unauthorized", status: 401};
@@ -637,10 +639,13 @@ export const createOneTimeSession = async (data: {
       studentEmail ||
       "Student";
 
-    // 3. Build startTime Date
+    // 3. Build startTime Date — convert from tutor's local timezone to UTC
     const [year, month, day] = data.date.split("-").map(Number);
     const [h, m] = data.startTime.split(":").map(Number);
-    const startDateTime = new Date(year, month - 1, day, h, m, 0, 0);
+    const startDateTime = fromZonedTime(
+      new Date(year, month - 1, day, h, m, 0, 0),
+      data.timezone
+    );
 
     // 4. Compute end time string for email
     const totalMinutes = h * 60 + m + data.duration;
@@ -735,6 +740,7 @@ export const createAvailableSlot = async (data: {
   duration: number;   // minutes
   sessionType: "individual" | "group" | "test";
   location: "online" | "classroom";
+  timezone: string;
 }) => {
   const {userId} = await auth();
   if (!userId) return {message: "Unauthorized", status: 401};
@@ -750,7 +756,10 @@ export const createAvailableSlot = async (data: {
 
     const [year, month, day] = data.date.split("-").map(Number);
     const [h, m] = data.startTime.split(":").map(Number);
-    const startDateTime = new Date(year, month - 1, day, h, m, 0, 0);
+    const startDateTime = fromZonedTime(
+      new Date(year, month - 1, day, h, m, 0, 0),
+      data.timezone
+    );
 
     await db.insert(availableSlotsTable).values({
       tutorId: tutors[0].id,

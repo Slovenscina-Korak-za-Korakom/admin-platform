@@ -1,19 +1,18 @@
 import TimeblockTabs from "@/app/(protected)/my-schedule/_components/timeblock-tabs";
-import { auth } from "@clerk/nextjs/server";
-import { notFound } from "next/navigation";
-import {SessionData, AvailableSlotData} from "@/components/calendar/types";
-import { checkTutorActivation } from "@/actions/admin-actions";
-import { ActivationWrapper } from "@/app/(protected)/my-schedule/_components/activation-wrapper";
+import {auth} from "@clerk/nextjs/server";
+import {notFound} from "next/navigation";
+import {AvailableSlotData, SessionData, StudentInfo} from "@/components/calendar/types";
+import {checkTutorActivation} from "@/actions/admin-actions";
+import {ActivationWrapper} from "@/app/(protected)/my-schedule/_components/activation-wrapper";
 import {
-  getScheduleData,
   getAcceptedRegulars,
-  getCancelledSessions,
   getAvailableSlots,
-  getUserSchedule,
+  getCancelledSessions,
+  getScheduleData,
   getStudentInfo,
+  getUserSchedule,
 } from "@/actions/timeblocks";
-import { fromZonedTime } from "date-fns-tz";
-import { StudentInfo } from "@/components/calendar/types";
+import {fromZonedTime} from "date-fns-tz";
 
 type SearchParams = {
   tab?: string;
@@ -21,23 +20,22 @@ type SearchParams = {
   month?: string;
 };
 
-function generateRecurringEvents(
-  invitations: {
-    id: number;
-    tutorId: number;
-    studentClerkId: string | null;
-    dayOfWeek: number;
-    startTime: string; // wall-clock HH:mm in `timezone`
-    duration: number;
-    location: string;
-    timezone: string | null;
-    updatedAt: Date;
-  }[],
-  cancelledSessions: {
-    invitationId: number;
-    cancelledDate: Date;
-  }[]
-): SessionData[] {
+const generateRecurringEvents = (invitations: {
+                                   id: number;
+                                   tutorId: number;
+                                   studentClerkId: string | null;
+                                   dayOfWeek: number;
+                                   startTime: string; // wall-clock HH:mm in `timezone`
+                                   duration: number;
+                                   location: string;
+                                   timezone: string | null;
+                                   updatedAt: Date;
+                                 }[],
+                                 cancelledSessions: {
+                                   invitationId: number;
+                                   cancelledDate: Date;
+                                 }[]
+): SessionData[] => {
   const events: SessionData[] = [];
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -100,11 +98,11 @@ function generateRecurringEvents(
 }
 
 export default async function TimeblocksPage({
-  searchParams,
-}: {
+                                               searchParams,
+                                             }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { userId } = await auth();
+  const {userId} = await auth();
 
   if (!userId) {
     throw notFound();
@@ -146,8 +144,9 @@ export default async function TimeblocksPage({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 p-5 space-y-6 w-full h-full">
-      <ActivationWrapper isActivated={isActivated} />
-      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} schedule={scheduleData} studentsInfo={studentsInfo} />
+      <ActivationWrapper isActivated={isActivated}/>
+      <TimeblockTabs data={data} availableSlots={availableSlots} initialTab={params.tab} schedule={scheduleData}
+                     studentsInfo={studentsInfo}/>
     </div>
   );
 }
