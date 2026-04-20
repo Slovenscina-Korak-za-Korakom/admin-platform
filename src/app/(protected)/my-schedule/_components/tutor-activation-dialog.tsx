@@ -112,7 +112,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
   return (
     <Dialog open={open} modal={true}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] max-w-md p-0 gap-0 overflow-hidden border-none shadow-2xl"
+        className="w-[calc(100vw-2rem)] md:w-full !max-w-lg p-0 gap-0 overflow-hidden border-none shadow-2xl"
         showCloseButton={false}
         onPointerDownOutside={(e) => {
           e.preventDefault();
@@ -212,8 +212,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
                       <Textarea
                         {...field}
                         placeholder="Tell students about your teaching experience and approach..."
-                        rows={3}
-                        className="resize-none"
+                        className="resize-none overflow-y-auto h-[4.5rem] sm:h-[5.5rem]"
                       />
                     </FormControl>
                     <FormDescription className="text-xs">
