@@ -34,7 +34,6 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const {user} = useUser();
   const router = useRouter();
-  open = true
 
   const form = useForm<z.infer<typeof activationFormSchema>>({
     resolver: zodResolver(activationFormSchema),
