@@ -34,6 +34,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const {user} = useUser();
   const router = useRouter();
+  open = true
 
   const form = useForm<z.infer<typeof activationFormSchema>>({
     resolver: zodResolver(activationFormSchema),
@@ -111,7 +112,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
   return (
     <Dialog open={open} modal={true}>
       <DialogContent
-        className="max-w-md p-0 gap-0 overflow-hidden border-none shadow-2xl"
+        className="w-[calc(100vw-2rem)] max-w-md p-0 gap-0 overflow-hidden border-none shadow-2xl"
         showCloseButton={false}
         onPointerDownOutside={(e) => {
           e.preventDefault();
@@ -123,7 +124,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
         }}
       >
         {/* Gradient Header */}
-        <div className="relative bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 p-8 pb-12">
+        <div className="relative bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 p-4 pb-6 sm:p-8 sm:pb-12">
           {/* Decorative gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-700/50 via-transparent to-blue-700/50"/>
 
@@ -141,18 +142,18 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
           </div>
 
           {/* Content */}
-          <div className="relative z-10 flex flex-col items-center text-center space-y-4">
+          <div className="relative z-10 flex flex-col items-center text-center space-y-2 sm:space-y-4">
             <div className="relative">
               <div className="absolute inset-0 bg-white/20 rounded-full blur-xl"/>
-              <div className="relative bg-white/10 backdrop-blur-sm rounded-full p-4 border border-white/20">
-                <Shield className="w-12 h-12 text-white"/>
+              <div className="relative bg-white/10 backdrop-blur-sm rounded-full p-2 sm:p-4 border border-white/20">
+                <Shield className="w-8 h-8 sm:w-12 sm:h-12 text-white"/>
               </div>
             </div>
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-2xl font-bold text-white">
+            <DialogHeader className="space-y-1 sm:space-y-2">
+              <DialogTitle className="text-lg sm:text-2xl font-bold text-white">
                 Activate Your Tutor Account
               </DialogTitle>
-              <DialogDescription className="text-white/90 text-base">
+              <DialogDescription className="text-white/90 text-sm sm:text-base">
                 Get started by activating your account to access all tutor features
               </DialogDescription>
             </DialogHeader>
@@ -160,7 +161,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
         </div>
 
         {/* Content Body */}
-        <div className="bg-background p-8 space-y-6">
+        <div className="bg-background p-4 sm:p-8 space-y-4 sm:space-y-6">
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Complete your profile to unlock full schedule management and session booking features.
@@ -168,7 +169,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleActivate)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(handleActivate)} className="space-y-3 sm:space-y-5">
               {/* Phone Number Field */}
               <FormField
                 control={form.control}
@@ -185,7 +186,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
                         {...field}
                         placeholder="e.g., +386 40 123 456"
                         type="tel"
-                        className="h-12"
+                        className="h-10 sm:h-12"
                       />
                     </FormControl>
                     <FormDescription className="text-xs">
@@ -211,7 +212,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
                       <Textarea
                         {...field}
                         placeholder="Tell students about your teaching experience and approach..."
-                        rows={4}
+                        rows={3}
                         className="resize-none"
                       />
                     </FormControl>
@@ -241,7 +242,7 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
                           accept="image/*"
                           disabled={isUploadingImage}
                           onChange={handleImageChange}
-                          className="h-12 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                          className="h-10 sm:h-12 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
                         />
                         {isUploadingImage && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -267,11 +268,11 @@ export function TutorActivationDialog({open, onActivate}: TutorActivationDialogP
               />
 
               {/* Submit Button */}
-              <div className="pt-4">
+              <div className="pt-2 sm:pt-4">
                 <Button
                   type="submit"
                   disabled={isActivating}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-6 text-base shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 sm:py-6 text-base shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isActivating ? (
                     <span className="flex items-center gap-2">
