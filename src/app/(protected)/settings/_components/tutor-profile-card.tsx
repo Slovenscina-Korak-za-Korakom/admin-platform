@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { getTutorProfile } from "@/actions/admin-actions";
 import TutorProfileForm from "./tutor-profile-form";
 
@@ -11,6 +12,8 @@ type TutorProfile = {
   bio: string;
   color: string;
 } | null;
+
+const FORM_ID = "tutor-profile-form";
 
 const TutorProfileCard = () => {
   const [tutor, setTutor] = useState<TutorProfile>(null);
@@ -31,16 +34,26 @@ const TutorProfileCard = () => {
   }, []);
 
   return (
-    <Card className="w-full max-w-4xl rounded-2xl p-1 bg-accent border-none">
-      <CardHeader className="pt-5">
-        <CardTitle>Tutor Profile</CardTitle>
-      </CardHeader>
-      <CardContent className="bg-white dark:bg-background border-1 border-foreground/10 rounded-2xl">
-        <div className="my-8">
-          <TutorProfileForm tutor={tutor} isLoaded={isLoaded} />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="px-6 py-5">
+        <h2 className="text-sm font-semibold">Tutor Profile</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Update your display name, contact info, bio, and calendar color.
+        </p>
+      </div>
+
+      <Separator />
+
+      <div className="px-6 py-5">
+        <TutorProfileForm tutor={tutor} isLoaded={isLoaded} formId={FORM_ID} />
+      </div>
+
+      <div className="flex items-center justify-end px-6 py-3.5 border-t border-border bg-muted/40">
+        <Button type="submit" form={FORM_ID} size="sm">
+          Save changes
+        </Button>
+      </div>
+    </div>
   );
 };
 

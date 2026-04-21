@@ -1,33 +1,30 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import PersonalForm from "./personal-form";
 import Skeleton from "react-loading-skeleton";
-import { Input } from "@/components/ui/input";
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {updateTutorAvatar} from "@/actions/admin-actions";
+
+const FORM_ID = "personal-info-form";
 
 const AccountCard = () => {
   const { user, isLoaded } = useUser();
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const MAX_FILE_SIZE_MB = 2;
-
-  const handleFileClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleFileClick = () => fileInputRef.current?.click();
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    const fileSizeMB = file.size / (1024 * 1024);
-
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+    if (file.size / (1024 * 1024) > 2) {
       toast.error("File too large", {
         description: "Please upload an image smaller than 2MB.",
       });
@@ -36,7 +33,8 @@ const AccountCard = () => {
 
     try {
       setIsUploading(true);
-      await user.setProfileImage({ file });
+      const { publicUrl } = await user.setProfileImage({ file });
+      if (publicUrl) await updateTutorAvatar(publicUrl);
       toast.success("Avatar updated", {
         description: "Your profile image has been updated successfully.",
       });
@@ -51,85 +49,91 @@ const AccountCard = () => {
   };
 
   return (
-    <>
-      <Card className="w-full max-w-4xl rounded-2xl p-1 bg-accent border-none">
-        <CardHeader className="pt-5">
-          <CardTitle className={"capitalize"}>Personal Information</CardTitle>
-        </CardHeader>
-        <CardContent className="bg-white dark:bg-background border-1 border-foreground/10 rounded-2xl">
-          <div className="my-8">
-            <div className="flex flex-row items-center gap-4">
-              <div className="relative h-20 w-20 rounded-full overflow-hidden border">
-                {isUploading ? (
-                  <Skeleton width={80} height={80} circle  containerClassName="leading-0 block" />
-                ) : (
-                  <Avatar className="w-20 h-20">
-                    <AvatarImage src={user?.imageUrl} />
-                    <AvatarFallback></AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="px-6 py-5">
+        <h2 className="text-sm font-semibold">Personal Information</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Update your name and profile picture.
+        </p>
+      </div>
 
-              <Input
-                type="file"
-                ref={fileInputRef}
-                placeholder="Update avatar"
-                className="hidden"
-                accept="image/*"
-                onChange={handleImageChange}
+      <Separator />
+
+      <div className="px-6 py-5">
+        <div className="flex items-center gap-5">
+          {isUploading ? (
+            <Skeleton width={64} height={64} circle containerClassName="leading-0 block shrink-0" />
+          ) : (
+            <Avatar className="w-16 h-16 shrink-0">
+              <AvatarImage src={user?.imageUrl} />
+              <AvatarFallback>
+                {user?.firstName?.[0]}
+                {user?.lastName?.[0]}
+              </AvatarFallback>
+            </Avatar>
+          )}
+
+          <Input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={isUploading}
+          />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleFileClick}
                 disabled={isUploading}
-              />
-
-              <div className="flex flex-col gap-1">
-                <div className="flex flex-row justify-center items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="cursor-pointer w-fit bg-white dark:bg-background capitalize"
-                    onClick={handleFileClick}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? "Uploading" : "Update avatar"}
-                  </Button>
-                  <Button
-                    variant="link"
-                    className="cursor-pointer text-indigo-400"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        setIsUploading(true);
-                        await user?.setProfileImage({ file: null });
-
-                        toast.success("Avatar removed", {
-                          description:
-                            "Your avatar has been reset to the default.",
-                        });
-                      } catch (err) {
-                        console.error(err);
-                        toast.error("Failed to remove avatar", {
-                          description:
-                            "Something went wrong while clearing your avatar.",
-                        });
-                      } finally {
-                        setIsUploading(false);
-                      }
-                    }}
-                    disabled={isUploading}
-                  >
-                    Clear
-                  </Button>
-                </div>
-                <span className="text-xs text-foreground/50">
-                  Recommended size 1:1, up to 2mb
-                </span>
-              </div>
+              >
+                {isUploading ? "Uploading…" : "Change avatar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                disabled={isUploading}
+                onClick={async () => {
+                  try {
+                    setIsUploading(true);
+                    await user?.setProfileImage({ file: null });
+                    toast.success("Avatar removed");
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to remove avatar");
+                  } finally {
+                    setIsUploading(false);
+                  }
+                }}
+              >
+                Remove
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Recommended 1:1 ratio, max 2 MB.
+            </p>
           </div>
-          <PersonalForm user={user} isLoaded={isLoaded} />
-        </CardContent>
-      </Card>
-    </>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="px-6 py-5">
+        <PersonalForm user={user} isLoaded={isLoaded} formId={FORM_ID} />
+      </div>
+
+      <div className="flex items-center justify-end px-6 py-3.5 border-t border-border bg-muted/40">
+        <Button type="submit" form={FORM_ID} size="sm">
+          Save changes
+        </Button>
+      </div>
+    </div>
   );
 };
 

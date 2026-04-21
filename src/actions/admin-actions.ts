@@ -103,6 +103,23 @@ export const getTutorProfile = async () => {
   }
 };
 
+export const updateTutorAvatar = async (imageUrl: string) => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401};
+  }
+  try {
+    await db.update(tutorsTable).set({
+      avatar: imageUrl
+    }).where(eq(tutorsTable.clerkId, userId));
+
+    return {message: "Profile updated successfully", status: 200};
+  } catch (error) {
+    console.error(error);
+    return {message: "Error updating tutor profile", status: 500};
+  }
+};
+
 export const updateTutorProfile = async (values: {
   name: string;
   phone: string;

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
 import { toast } from "sonner";
 import Skeleton from "react-loading-skeleton";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { updateTutorProfile } from "@/actions/admin-actions";
+
+const PRESET_COLORS = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
+  "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#3b82f6", "#64748b",
+];
 
 const formSchema = z.object({
   name: z.string().min(2).max(255),
@@ -36,11 +44,14 @@ type TutorProfileData = {
 const TutorProfileForm = ({
   tutor,
   isLoaded,
+  formId,
 }: {
   tutor: TutorProfileData;
   isLoaded: boolean;
+  formId?: string;
 }) => {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const colorPickerRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,7 +90,7 @@ const TutorProfileForm = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form id={formId} onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex flex-row items-start gap-6">
           <FormField
             control={form.control}
@@ -126,34 +137,72 @@ const TutorProfileForm = ({
         <FormField
           control={form.control}
           name="color"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Calendar color</FormLabel>
-              <FormControl>
-                {isLoaded ? (
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={field.value}
-                      onChange={field.onChange}
-                      className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-1"
-                    />
-                    <Input {...field} placeholder="#6366f1" className="w-32" />
-                  </div>
-                ) : (
-                  skeletonField
-                )}
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const isPreset = PRESET_COLORS.includes(field.value);
+            return (
+              <FormItem>
+                <FormLabel>Calendar color</FormLabel>
+                <FormControl>
+                  {isLoaded ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {PRESET_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => field.onChange(color)}
+                            className={cn(
+                              "w-7 h-7 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center",
+                              field.value === color
+                                ? "border-foreground scale-110 shadow-sm"
+                                : "border-transparent hover:scale-105"
+                            )}
+                            style={{ backgroundColor: color }}
+                          >
+                            {field.value === color && (
+                              <Check size={12} className="text-white drop-shadow" strokeWidth={3} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-7 h-7 rounded-full border border-border shrink-0"
+                          style={{ backgroundColor: field.value }}
+                        />
+                        <Input
+                          {...field}
+                          placeholder="#6366f1"
+                          className="w-32 font-mono text-sm"
+                        />
+                        <input
+                          ref={colorPickerRef}
+                          type="color"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="sr-only"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={cn(!isPreset && "border-foreground")}
+                          onClick={() => colorPickerRef.current?.click()}
+                        >
+                          Custom
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    skeletonField
+                  )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Saving…" : "Save changes"}
-          </Button>
-        </div>
       </form>
     </Form>
   );

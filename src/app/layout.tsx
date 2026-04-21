@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type {Metadata} from "next";
 import "./globals.css";
+import "react-loading-skeleton/dist/skeleton.css";
 import {ClerkProvider} from "@clerk/nextjs";
 import {Inter, Manrope} from "next/font/google";
 import {Toaster} from "sonner";

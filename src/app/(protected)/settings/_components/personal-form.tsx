@@ -15,14 +15,13 @@ import z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
   firstName: z.string().min(2).max(50),
   lastName: z.string().min(2).max(50),
 });
 
-const PersonalForm = ({ user, isLoaded }: { user: any; isLoaded: boolean }) => {
+const PersonalForm = ({ user, isLoaded, formId }: { user: any; isLoaded: boolean; formId?: string }) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,7 +47,7 @@ const PersonalForm = ({ user, isLoaded }: { user: any; isLoaded: boolean }) => {
   };
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form id={formId} onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="flex flex-row items-center justify-center gap-10">
           <FormField
             control={form.control}
@@ -93,9 +92,6 @@ const PersonalForm = ({ user, isLoaded }: { user: any; isLoaded: boolean }) => {
             )}
           />
         </div>
-        <Button className="hidden" type="submit">
-          Submit
-        </Button>
       </form>
     </Form>
   );
