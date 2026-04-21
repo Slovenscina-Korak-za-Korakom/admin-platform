@@ -29,7 +29,7 @@ const generateRecurringEvents = (invitations: {
                                    duration: number;
                                    location: string;
                                    timezone: string | null;
-                                   updatedAt: Date;
+                                   confirmedAt: Date | null;
                                  }[],
                                  cancelledSessions: {
                                    invitationId: number;
@@ -53,7 +53,7 @@ const generateRecurringEvents = (invitations: {
 
   for (const inv of invitations) {
     // Find the first occurrence on or after today (using UTC day-of-week)
-    const current = new Date(inv.updatedAt);
+    const current = new Date(inv.confirmedAt!);
     const currentDayOfWeek = current.getUTCDay();
     let daysUntil = inv.dayOfWeek - currentDayOfWeek;
     if (daysUntil < 0) daysUntil += 7;

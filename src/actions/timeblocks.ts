@@ -380,7 +380,7 @@ export const getAcceptedRegulars = async () => {
         location: regularInvitationsTable.location,
         description: regularInvitationsTable.description,
         timezone: regularInvitationsTable.timezone,
-        updatedAt: regularInvitationsTable.updatedAt,
+        confirmedAt: regularInvitationsTable.confirmedAt,
       })
       .from(regularInvitationsTable)
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))

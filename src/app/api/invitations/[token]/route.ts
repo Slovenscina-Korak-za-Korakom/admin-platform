@@ -111,6 +111,7 @@ export async function GET(
           status: "accepted",
           studentClerkId,
           updatedAt: new Date(),
+          confirmedAt: new Date(),
         })
         .where(eq(regularInvitationsTable.id, invitation.id));
 

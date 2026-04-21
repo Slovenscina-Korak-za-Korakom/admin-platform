@@ -193,16 +193,20 @@ function expandRegularSessions(regularData: {data: RegularSession[], cancelData:
   const result: DailySessionStat[] = [];
 
   for (const session of regularData.data) {
+    if (!session.confirmedAt) continue;
     const filterDate = getDateFromFilter(filter);
-    const updatedAt = new Date(session.updatedAt);
-    const start = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
+    const confirmedAt = new Date(session.confirmedAt);
+    const start = (filterDate !== undefined && filterDate > confirmedAt) ? filterDate : confirmedAt;
     start.setUTCHours(0, 0, 0, 0);
+
+    const end = session.status === "removed" && session.updatedAt ? new Date(session.updatedAt) : now;
+    end.setUTCHours(0, 0, 0, 0);
 
     const daysUntilFirst = (session.dayOfWeek - start.getUTCDay() + 7) % 7;
     const current = new Date(start);
     current.setDate(current.getDate() + daysUntilFirst);
 
-    while (current < now) {
+    while (current < end) {
       const dateStr = current.toISOString().slice(0, 10);
       const isCancelled = regularData.cancelData.some(
         c => c.invitationId === session.id && new Date(c.date).toISOString().slice(0, 10) === dateStr

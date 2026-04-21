@@ -3,7 +3,7 @@
 import {auth, clerkClient} from "@clerk/nextjs/server";
 import db from "@/db";
 import {cancelledRegularSessionsTable, regularInvitationsTable, timeblocksTable, tutorsTable} from "@/db/schema";
-import {and, asc, count, eq, gt, gte, lt, sql, sum} from "drizzle-orm";
+import {and, asc, count, eq, gt, gte, inArray, lt, sql, sum} from "drizzle-orm";
 import {addDays, startOfDay} from "date-fns";
 import {fromZonedTime, toZonedTime} from "date-fns-tz";
 
@@ -48,7 +48,7 @@ export interface RegularSessionsWithName {
   status: string;
   duration: number;
   timezone: string | null; // IANA name
-  updatedAt: Date;
+  confirmedAt: Date | null;
   studentName: string;
   studentAvatar: string;
 }
@@ -61,6 +61,8 @@ export interface RegularSession {
   dayOfWeek: number;
   startTime: string;
   duration: number;
+  status: string;
+  confirmedAt: Date | null;
   updatedAt: Date;
 }
 
@@ -84,6 +86,47 @@ export interface CancelData {
   invitationId: number;
   date: Date;
 }
+
+export const getTutorProfile = async () => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401, data: null};
+  }
+
+  try {
+    const [tutor] = await db.select().from(tutorsTable).where(eq(tutorsTable.clerkId, userId)).limit(1);
+    return {message: "Success", status: 200, data: tutor ?? null};
+  } catch (error) {
+    console.error(error);
+    return {message: "Error fetching tutor profile", status: 500, data: null};
+  }
+};
+
+export const updateTutorProfile = async (values: {
+  name: string;
+  phone: string;
+  bio: string;
+  color: string;
+}) => {
+  const {userId} = await auth();
+  if (!userId) {
+    return {message: "Unauthorized", status: 401};
+  }
+
+  try {
+    await db.update(tutorsTable).set({
+      name: values.name,
+      phone: values.phone,
+      bio: values.bio,
+      color: values.color,
+    }).where(eq(tutorsTable.clerkId, userId));
+
+    return {message: "Profile updated successfully", status: 200};
+  } catch (error) {
+    console.error(error);
+    return {message: "Error updating tutor profile", status: 500};
+  }
+};
 
 export const getTutors = async () => {
   const {userId} = await auth();
@@ -302,11 +345,13 @@ export const getRegularSessions = async () => {
       dayOfWeek: regularInvitationsTable.dayOfWeek,
       startTime: regularInvitationsTable.startTime,
       duration: regularInvitationsTable.duration,
+      status: regularInvitationsTable.status,
+      confirmedAt: regularInvitationsTable.confirmedAt,
       updatedAt: regularInvitationsTable.updatedAt,
     })
       .from(regularInvitationsTable)
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))
-      .where(eq(regularInvitationsTable.status, "accepted"));
+      .where(inArray(regularInvitationsTable.status, ["accepted", "removed"]));
 
     const cancelledSessions = await db.select({
       id: cancelledRegularSessionsTable.id,
@@ -352,7 +397,7 @@ export const getAllRegularSessions = async () => {
       status: regularInvitationsTable.status,
       duration: regularInvitationsTable.duration,
       timezone: regularInvitationsTable.timezone,
-      updatedAt: regularInvitationsTable.updatedAt,
+      confirmedAt: regularInvitationsTable.confirmedAt,
     })
       .from(regularInvitationsTable)
       .innerJoin(tutorsTable, eq(tutorsTable.id, regularInvitationsTable.tutorId))

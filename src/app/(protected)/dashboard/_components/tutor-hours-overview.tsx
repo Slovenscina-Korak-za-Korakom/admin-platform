@@ -50,15 +50,18 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
     const result = new Map<number, { sessions: number; minutes: number; revenue: number }>();
 
     regularData.data.forEach((session) => {
+      if (!session.confirmedAt) return;
       const filterDate = getDateFromFilter(activeFilter);
-      const updatedAt = new Date(session.updatedAt);
-      const from = (filterDate !== undefined && filterDate > updatedAt) ? filterDate : updatedAt;
+      const confirmedAt = new Date(session.confirmedAt);
+      const from = (filterDate !== undefined && filterDate > confirmedAt) ? filterDate : confirmedAt;
 
-      const count = countWeekdayOccurrences(session.dayOfWeek, from, now);
+      const end = session.status === "removed" && session.updatedAt ? new Date(session.updatedAt) : now;
+
+      const count = countWeekdayOccurrences(session.dayOfWeek, from, end);
 
       const cancelledCount = regularData.cancelData.filter((c) => {
         const cancelDate = new Date(c.date);
-        return c.invitationId === session.id && cancelDate >= from && cancelDate < now;
+        return c.invitationId === session.id && cancelDate >= from && cancelDate < end;
       }).length;
 
       const effectiveCount = Math.max(0, count - cancelledCount);
