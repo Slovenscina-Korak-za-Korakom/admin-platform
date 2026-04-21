@@ -198,6 +198,11 @@
   }
 }
 
+.react-loading-skeleton {
+  --base-color: oklch(0.93 0 0);
+  --highlight-color: oklch(0.98 0 0);
+}
+
 /* Calendar Event Styles */
 .fc-event {
   background-color: var(--event-bg) !important;
