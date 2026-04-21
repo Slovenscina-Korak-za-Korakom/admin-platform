@@ -62,6 +62,7 @@ export interface RegularSession {
   startTime: string;
   duration: number;
   status: string;
+  price: number | null;
   confirmedAt: Date | null;
   updatedAt: Date;
 }
@@ -346,6 +347,7 @@ export const getRegularSessions = async () => {
       startTime: regularInvitationsTable.startTime,
       duration: regularInvitationsTable.duration,
       status: regularInvitationsTable.status,
+      price: regularInvitationsTable.pricePerSession,
       confirmedAt: regularInvitationsTable.confirmedAt,
       updatedAt: regularInvitationsTable.updatedAt,
     })

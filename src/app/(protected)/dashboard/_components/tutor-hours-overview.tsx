@@ -4,11 +4,12 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {CancelData, DailySessionStat, RegularSession, TutorHoursByType} from "@/actions/admin-actions";
 import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_components/admin-dashboard";
 import {IconChartBar, IconClock, IconMoneybag, IconUsersGroup} from "@tabler/icons-react";
-import {useMemo} from "react";
+import {useMemo, useState} from "react";
 import {SessionsChart} from "@/app/(protected)/dashboard/_components/sessions-chart";
 import {cn} from "@/lib/utils";
 import {useRouter} from "next/navigation";
 import {TutorCard} from "@/app/(protected)/dashboard/_components/tutorCard";
+import {Avatar, AvatarFallback, AvatarGroup, AvatarImage} from "@/components/ui/avatar";
 
 export function formatTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -31,7 +32,7 @@ const FILTER_OPTIONS: { value: HoursFilter; label: string }[] = [
 export function TutorHoursOverview({data, regularData, dailyData, activeFilter, tutors}: {
   data: TutorHoursByType[];
   dailyData: { status: number, data: DailySessionStat[] };
-  regularData: {status: number, message: string, data: RegularSession[], cancelData: CancelData[]};
+  regularData: { status: number, message: string, data: RegularSession[], cancelData: CancelData[] };
   activeFilter: HoursFilter;
   tutors: {
     id: number,
@@ -44,10 +45,11 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
 }) {
 
   const router = useRouter();
-
+  const [selectedTutor, setSelectedTutor] = useState<number | null>(null)
   const regularStats = useMemo(() => {
     const now = new Date();
     const result = new Map<number, { sessions: number; minutes: number; revenue: number }>();
+    let uncalculated = 0;
 
     regularData.data.forEach((session) => {
       if (!session.confirmedAt) return;
@@ -71,32 +73,39 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
       }
       const stats = result.get(session.tutorId)!;
       stats.sessions += effectiveCount;
-      stats.minutes += effectiveCount * session.duration;
-      const tutor = tutors.find((t) => t.id === session.tutorId)
-      stats.revenue += tutor?.level === "junior" ? effectiveCount * session.duration * 0.333 : effectiveCount * session.duration * 0.367;
+      stats.minutes += effectiveCount * Number(session.duration);
+      if (session.price) {
+        stats.revenue += Number(session.price) * effectiveCount;
+      } else {
+        uncalculated += effectiveCount;
+      }
     });
 
-    return result;
-  }, [regularData.data, regularData.cancelData, activeFilter, tutors]);
+    return {result, uncalculated};
+  }, [regularData.data, regularData.cancelData, activeFilter]);
 
 
   const totalStats = useMemo(() => {
     let minutes = 0;
     let sessions = 0;
+    let regularSessions = 0;
     let revenue = 0;
     data.forEach((tutor) => {
       tutor.sessions.forEach(session => {
-        minutes += session.totalMinutes;
-        sessions += session.sessionCount;
-        revenue += tutor.tutorLevel === "junior" ? session.totalMinutes * 0.333 : session.totalMinutes * 0.367;
+        minutes += Number(session.totalMinutes);
+        sessions += Number(session.sessionCount);
+        // TODO: calculated the correct revenue for non-regular sessions
+        // revenue += tutor.tutorLevel === "junior" ? Number(session.totalMinutes) * 0.333 : Number(session.totalMinutes) * 0.367;
       });
     });
-    regularStats.forEach((t: { minutes: number, sessions: number, revenue: number }) => {
-      minutes += t.minutes;
-      sessions += t.sessions
-      revenue += t.revenue
-    })
-    return {minutes, sessions, revenue};
+    regularStats.result.forEach((t) => {
+      minutes += Number(t.minutes);
+      regularSessions += Number(t.sessions);
+      revenue += Number(t.revenue);
+    });
+    const totalSessions = sessions + regularSessions;
+    const percentage = totalSessions === 0 ? 1 : (regularSessions - regularStats.uncalculated) / totalSessions;
+    return {minutes, sessions: totalSessions, revenue, percentageCalculated: percentage};
   }, [data, regularStats]);
 
   if (data.length === 0 && regularData.data.length === 0) {
@@ -148,7 +157,8 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{formatTime(totalStats.minutes)}</div>
+            <div
+              className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{formatTime(totalStats.minutes)}</div>
             <p className="text-xs text-indigo-600/75 dark:text-indigo-400/75 mt-1">Combined teaching time</p>
           </CardContent>
         </Card>
@@ -170,7 +180,8 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
         <Card
           className="relative overflow-hidden border-l-4 border-l-rose-500 bg-gradient-to-br from-rose-100/70 via-pink-50/40 to-transparent dark:from-rose-950/40 dark:via-pink-950/20 dark:to-transparent shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-rose-900 dark:text-rose-100">
+            <CardTitle
+              className="text-sm font-medium text-rose-900 dark:text-rose-100">
               Estimated Revenue
             </CardTitle>
             <div
@@ -182,39 +193,66 @@ export function TutorHoursOverview({data, regularData, dailyData, activeFilter, 
             <div className="text-2xl font-bold text-rose-700 dark:text-rose-300">
               € {totalStats.revenue.toFixed(2)}
             </div>
-            <p className="text-xs text-rose-600/75 dark:text-rose-400/75 mt-1">
-              Based on session rates
-            </p>
+            <div className="inline-flex justify-between items-center w-full ">
+
+              <p className="text-xs text-rose-600/75 dark:text-rose-400/75 mt-1">
+                Based on session rates
+              </p>
+              <p className="text-xs text-rose-600/75 dark:text-rose-400/75 mt-1">
+                Accounted for {(totalStats.percentageCalculated * 100).toFixed(0)}%
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Time range filter */}
-      <div className="inline-flex rounded-lg border border-border text-xs font-medium overflow-hidden mt-8">
-        {FILTER_OPTIONS.map((r, i) => (
-          <button
-            key={r.value}
-            onClick={() => handleFilterChange(r.value)}
-            className={cn(
-              "cursor-pointer px-3 py-1.5 transition-colors",
-              i > 0 && "border-l border-border",
-              activeFilter === r.value
-                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                : "bg-background text-muted-foreground hover:bg-muted/60"
-            )}
-          >
-            {r.label}
-          </button>
-        ))}
+      <div className="inline-flex items-center justify-between w-full">
+        {/* Time range filter */}
+        <div className="inline-flex rounded-lg border border-border text-xs font-medium overflow-hidden mt-8">
+          {FILTER_OPTIONS.map((r, i) => (
+            <button
+              key={r.value}
+              onClick={() => handleFilterChange(r.value)}
+              className={cn(
+                "cursor-pointer px-3 py-1.5 transition-colors",
+                i > 0 && "border-l border-border",
+                activeFilter === r.value
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                  : "bg-background text-muted-foreground hover:bg-muted/60"
+              )}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <AvatarGroup>
+          {tutors.map((tutor) => (
+            <button
+              key={tutor.id}
+              onClick={() => setSelectedTutor(selectedTutor === tutor.id ? null : tutor.id)}
+              className={cn(
+                "cursor-pointer hover:scale-110 rounded-full transition-transform relative",
+                selectedTutor === tutor.id && "ring-2 ring-offset-1 ring-indigo-500 z-10"
+              )}
+            >
+              <Avatar>
+                <AvatarImage src={tutor.avatar} alt={`${tutor.name}'s profile picture`}/>
+                <AvatarFallback>
+                  {tutor.name[0]}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          ))}
+        </AvatarGroup>
       </div>
-
       {dailyData.status === 200 && (
         <div className="mb-10">
-          <SessionsChart data={dailyData.data} regularData={regularData} activeFilter={activeFilter}/>
+          <SessionsChart data={dailyData.data} regularData={regularData} activeFilter={activeFilter}
+                         tutorFilter={selectedTutor}/>
         </div>
       )}
 
-      <TutorCard tutors={tutors} data={data} regularStats={regularStats}/>
+      <TutorCard tutors={tutors} data={data} regularStats={regularStats.result}/>
     </div>
   );
 }

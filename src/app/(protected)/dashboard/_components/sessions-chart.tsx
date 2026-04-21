@@ -18,10 +18,11 @@ import {getDateFromFilter, HoursFilter} from "@/app/(protected)/dashboard/_compo
 
 type Metric = "sessions" | "minutes";
 
-export function SessionsChart({data, regularData, activeFilter}: {
+export function SessionsChart({data, regularData, activeFilter, tutorFilter}: {
   data: DailySessionStat[];
-  regularData: {status: number, data: RegularSession[]; cancelData: CancelData[]}
+  regularData: { status: number, data: RegularSession[]; cancelData: CancelData[] }
   activeFilter: HoursFilter;
+  tutorFilter?: number | null;
 }) {
   const [metric, setMetric] = useState<Metric>("sessions");
 
@@ -41,7 +42,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
     return Array.from(map.values());
   }, [data, regularData, activeFilter]);
 
-  const tutors = useMemo(() => {
+  const allTutors = useMemo(() => {
     const map = new Map<number, { name: string; color: string }>();
     allData.forEach(d => {
       if (!map.has(d.tutorId)) {
@@ -50,6 +51,11 @@ export function SessionsChart({data, regularData, activeFilter}: {
     });
     return Array.from(map.entries()).map(([id, info]) => ({id, ...info}));
   }, [allData]);
+
+  const tutors = useMemo(() => {
+    if (tutorFilter) return allTutors.filter(t => t.id === tutorFilter);
+    return allTutors;
+  }, [allTutors, tutorFilter]);
 
 
   // Pivot: one entry per date, each tutor is a key with their value (default 0)
@@ -73,8 +79,10 @@ export function SessionsChart({data, regularData, activeFilter}: {
     allData.forEach(d => {
       const entry = dateMap.get(d.date);
       if (!entry) return;
-      entry[`tutor-${d.tutorId}`] = metric === "sessions" ? d.sessionCount : d.totalMinutes;
-    })
+      const key = `tutor-${d.tutorId}`;
+      if (!(key in entry)) return;
+      entry[key] = metric === "sessions" ? d.sessionCount : d.totalMinutes;
+    });
 
     return Array.from(dateMap.entries())
       .map(([date, values]) => ({date, ...values}))
@@ -100,10 +108,7 @@ export function SessionsChart({data, regularData, activeFilter}: {
               Booked sessions per tutor · {metric === "sessions" ? "count" : "minutes"}
             </p>
           </div>
-
           <div className="flex items-center gap-2 flex-wrap">
-
-
 
             {/* Metric toggle */}
             <div className="inline-flex rounded-lg border border-border text-xs font-medium overflow-hidden">
@@ -187,7 +192,10 @@ export function SessionsChart({data, regularData, activeFilter}: {
   );
 }
 
-function expandRegularSessions(regularData: {data: RegularSession[], cancelData: CancelData[]}, filter: HoursFilter): DailySessionStat[] {
+function expandRegularSessions(regularData: {
+  data: RegularSession[],
+  cancelData: CancelData[]
+}, filter: HoursFilter): DailySessionStat[] {
   const now = new Date();
   now.setUTCHours(0, 0, 0, 0);
   const result: DailySessionStat[] = [];
